@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# virtualenv (created with `uv venv .venv`)
+.venv/
+venv/
+
+# run artifacts & caches (regenerable)
+runs/
+.critic_cache.jsonl
+
+# generated tokenizer dir (rebuild: python scripts/make_fixed_tokenizer.py)
+deepseek_tokenizer_fixed/
+
+# generated dashboards / scratch HTML
+*.html
+
+# OS / editor
+.DS_Store
+*.swp

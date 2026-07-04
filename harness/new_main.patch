@@ -1,0 +1,105 @@
+diff --git a/defectsc_tpl/new_main.py b/defectsc_tpl/new_main.py
+index 1de1d95..034e7a4 100644
+--- a/defectsc_tpl/new_main.py
++++ b/defectsc_tpl/new_main.py
+@@ -138,6 +138,7 @@ tasks:     Dict[str, dict]         = {}   # in-memory store for /reproduce tasks
+ class ReproduceRequest(BaseModel):
+     bug_id: str
+     is_force_cleanup: bool = True
++    sanitize: Optional[str] = None   # e.g. "address" or "address,undefined"; None = normal build
+ 
+ class FixRequest(BaseModel):
+     bug_id: str
+@@ -483,11 +484,12 @@ def exec_cmd(cmd_info: dict, *, raise_on_error: bool = True) -> int:
+     return proc.returncode
+ 
+ class BugsInfo:
+-    def __init__(self, project: str, sha: str):
++    def __init__(self, project: str, sha: str, sanitize: Optional[str] = None):
+         if project not in PROJECTS_DIR:
+             raise ValueError(f"Unknown project '{project}'")
+         self.project       = project
+         self.sha           = sha
++        self.sanitize      = sanitize
+         self.project_major = PROJECTS_DIR[project]
+         self.src_dir       = str(SRC_ROOT)
+         self.wrk_git = self._make_dir(
+@@ -548,6 +550,22 @@ class BugsInfo:
+             **compile_block,
+         }
+ 
++        # Opt-in sanitizer build (Phase 2, additive): a separate build dir so the
++        # warm non-sanitized build /fix relies on is never clobbered, and the
++        # sanitizer flags injected via env (the workflow templates `export` each
++        # env item, which propagates to the child build/test scripts). Quotes are
++        # kept inside the value so multi-word flags survive shell word-splitting.
++        if sanitize:
++            flags = f"-fsanitize={sanitize} -fno-omit-frame-pointer -g"
++            self.meta_info["build_dir"] = f"build_{sha}_asan"
++            self.meta_info["env"] = list(self.meta_info.get("env") or []) + [
++                f'CFLAGS="{flags}"',
++                f'CXXFLAGS="{flags}"',
++                f'LDFLAGS="-fsanitize={sanitize}"',
++                "ASAN_OPTIONS=detect_leaks=0:abort_on_error=0:halt_on_error=0:symbolize=1",
++                "UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=0",
++            ]
++
+     def _make_dir(self, *candidates: Path) -> Path:
+         for i, p in enumerate(candidates):
+             if p.exists() or i == 0:
+@@ -646,8 +664,10 @@ async def run_reproduce_queue(instance: BugsInfo, log_path: str, handle: str, fo
+     lock = sha_locks.setdefault(instance.sha, asyncio.Lock())
+     async with lock:
+         tasks[handle]["status"] = "running"
++        store_task_in_redis(handle, tasks[handle])
+         try:
+-            rc = await asyncio.to_thread(_run_reproduce, instance, log_path, force_cleanup)
++            rc = await asyncio.get_event_loop().run_in_executor(
++                None, _run_reproduce, instance, log_path, force_cleanup)
+             tasks[handle]["result"] = {"log_file": log_path, "return_code": rc}
+             tasks[handle]["status"] = "completed" if rc == 0 else "failed"
+             if rc != 0:
+@@ -655,6 +675,8 @@ async def run_reproduce_queue(instance: BugsInfo, log_path: str, handle: str, fo
+         except Exception:
+             tasks[handle]["status"] = "failed"
+             tasks[handle]["error"]  = traceback.format_exc()
++        # persist terminal state so any worker can serve /status
++        store_task_in_redis(handle, tasks[handle])
+ 
+ def _build_fix_task(instance, patch, log_path, redis_key, result_data, rc, cached=False):
+     return {
+@@ -713,7 +735,8 @@ async def run_fix_queue(instance: BugsInfo, patch: str, log_path: str, handle: s
+                 print(f"Error reading existing log files: {e}")
+ 
+         try:
+-            rc = await asyncio.to_thread(_run_fix, instance, patch, log_path)
++            rc = await asyncio.get_event_loop().run_in_executor(
++                None, _run_fix, instance, patch, log_path)
+             rd = prepare_result_data(instance, patch_md5, rc,
+                                       f"run_patch.sh exited {rc}" if rc != 0 else "")
+             store_task_in_redis(handle, _build_fix_task(instance, patch, log_path, redis_key, rd, rc))
+@@ -1082,15 +1105,20 @@ def list_projects():
+ def reproduce(req: ReproduceRequest, background_tasks: BackgroundTasks):
+     try:
+         project, sha = parse_bug_id(req.bug_id)
+-        instance = BugsInfo(project, sha)
++        instance = BugsInfo(project, sha, sanitize=req.sanitize)
+     except Exception:
+         raise HTTPException(status_code=400, detail=traceback.format_exc())
+-    handle   = uuid.uuid4().hex
+-    log_file = str(instance.wrk_log / f"{sha}_reproduce_{handle}.log")
++    # Redis-backed handle so /status works across gunicorn workers (the in-memory
++    # `tasks` dict is per-worker; a poll can land on a different worker).
++    uid       = uuid.uuid4().hex
++    redis_key = f"reproduce_{sha}_{uid}.log"
++    handle    = redis_key_to_handle(redis_key)
++    log_file  = str(instance.wrk_log / f"{sha}_reproduce_{uid}.log")
+     tasks[handle] = {
+         "bug_id": req.bug_id, "sha": sha, "status": "queued",
+-        "log_file": log_file, "force_cleanup": req.is_force_cleanup,
++        "log_file": log_file, "force_cleanup": str(req.is_force_cleanup),
+     }
++    store_task_in_redis(handle, tasks[handle])
+     background_tasks.add_task(run_reproduce_queue, instance, log_file, handle, req.is_force_cleanup)
+     return {"handle": handle}
+ 

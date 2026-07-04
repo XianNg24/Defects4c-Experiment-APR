@@ -1,0 +1,8 @@
+# Phase 0–1 agentic APR dependencies (host-side; the agent talks to the
+# Defects4C container over HTTP and to an OpenAI-compatible model endpoint).
+requests>=2.31
+openai>=1.30
+rich>=13.0
+# Orchestrator (used from Phase 1 onward; harness_client smoke test does not need it).
+langgraph>=0.2
+langchain-core>=0.3

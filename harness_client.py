@@ -1,0 +1,193 @@
+"""Thin client over the Defects4C HTTP service (new_main.py).
+
+Wraps the five endpoints the repair workflow uses:
+    list_defects_bugid → get_defect → build_patch → fix → status (poll)
+
+The state machine in graph.py (Phase 1) calls these; nothing here is
+agent-specific. `--smoke` exercises only the two READ-ONLY endpoints
+(list + get_defect) so it is safe to run while the container is busy
+(e.g. during run_warmup.sh) — it never triggers a build or test run.
+
+Usage:
+    python harness_client.py --smoke
+"""
+from __future__ import annotations
+
+import time
+from typing import Any, Optional
+
+import requests
+
+import config
+
+
+class HarnessError(RuntimeError):
+    """Raised when the service returns an error status or an HTTP failure."""
+
+
+class HarnessClient:
+    def __init__(self, base_url: str = config.DEFECTS4C_BASE_URL,
+                 timeout: int = config.HARNESS_TIMEOUT):
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout
+
+    # ── low-level ─────────────────────────────────────────────────────────────
+    def _get(self, path: str) -> dict[str, Any]:
+        r = requests.get(f"{self.base_url}{path}", timeout=self.timeout)
+        r.raise_for_status()
+        return r.json()
+
+    def _post(self, path: str, payload: dict) -> dict[str, Any]:
+        r = requests.post(
+            f"{self.base_url}{path}",
+            headers={"Content-Type": "application/json"},
+            json=payload,
+            timeout=self.timeout,
+        )
+        r.raise_for_status()
+        return r.json()
+
+    # ── read-only ─────────────────────────────────────────────────────────────
+    def health(self) -> bool:
+        return self._get("/health").get("status") == "ok"
+
+    def list_bugs(self, exclude_substr: Optional[str] = config.EXCLUDE_SUBSTR) -> list[str]:
+        data = self._get("/list_defects_bugid")
+        if data.get("status") != "success":
+            raise HarnessError(f"list_defects_bugid failed: {data}")
+        bugs = data.get("defects", [])
+        if exclude_substr:
+            bugs = [b for b in bugs if exclude_substr not in b]
+        return bugs
+
+    def get_defect(self, bug_id: str) -> dict[str, Any]:
+        """Full prompt + metadata for one defect.
+
+        Returns the raw response; callers use `bug_id` (authoritative
+        project@sha), `prompt_data.prompt` (message list), and
+        `prompt_data.temperature`.
+        """
+        data = self._get(f"/get_defect/{bug_id}")
+        if data.get("status") != "success":
+            raise HarnessError(f"get_defect({bug_id}) failed: {data}")
+        return data
+
+    # ── write / compute (used from Phase 1 onward) ────────────────────────────
+    def build_patch(self, bug_id: str, llm_response: str, method: str = "direct",
+                    generate_diff: bool = True, persist_flag: bool = True) -> dict[str, Any]:
+        """Turn an LLM response into a patch file on disk. Returns `fix_p` path."""
+        data = self._post("/build_patch", {
+            "bug_id": bug_id,
+            "llm_response": llm_response,
+            "method": method,
+            "generate_diff": generate_diff,
+            "persist_flag": persist_flag,
+        })
+        if not data.get("success"):
+            raise HarnessError(f"build_patch failed: {data.get('error_code')}: {data.get('error')}")
+        return data
+
+    def reproduce(self, bug_id: str, sanitize: Optional[str] = None,
+                  force_cleanup: bool = False) -> str:
+        """Build+test the bug's revisions; with `sanitize` set, an ASAN/UBSan build
+        so the crash report lands in the test log. Returns the poll handle."""
+        payload = {"bug_id": bug_id, "is_force_cleanup": force_cleanup}
+        if sanitize:
+            payload["sanitize"] = sanitize
+        data = self._post("/reproduce", payload)
+        handle = data.get("handle")
+        if not handle:
+            raise HarnessError(f"reproduce() returned no handle: {data}")
+        return handle
+
+    def wait_for_reproduce(self, handle: str,
+                           poll_interval: int = config.FIX_POLL_INTERVAL,
+                           max_wait: int = config.REPRODUCE_MAX_WAIT) -> dict[str, Any]:
+        return self.wait_for_fix(handle, poll_interval=poll_interval, max_wait=max_wait)
+
+    def read_test_logs(self, bug_id: str) -> str:
+        """Return the BUGGY revision's test log from the host mount — the failing
+        run we diagnose (the sanitizer report / crash / assertion lives here).
+        Falls back to the fixed-run log only if the buggy log is absent."""
+        import os
+        project, sha = bug_id.split("@", 1)
+        logdir = os.path.join(config.OUT_DIR, project, "logs")
+        for name in (f"test_{sha}_buggy.log", f"test_{sha}_fix.log"):
+            p = os.path.join(logdir, name)
+            if os.path.exists(p):
+                with open(p, errors="replace") as f:
+                    return f.read()
+        return ""
+
+    def fix(self, bug_id: str, patch_path: str) -> str:
+        """Submit a patch for test-suite verification; return the poll handle."""
+        data = self._post("/fix", {"bug_id": bug_id, "patch_path": patch_path})
+        handle = data.get("handle")
+        if not handle:
+            raise HarnessError(f"fix() returned no handle: {data}")
+        return handle
+
+    def status(self, handle: str) -> dict[str, Any]:
+        return self._get(f"/status/{handle}")
+
+    def wait_for_fix(self, handle: str,
+                     poll_interval: int = config.FIX_POLL_INTERVAL,
+                     max_wait: int = config.FIX_MAX_WAIT) -> dict[str, Any]:
+        """Poll /status until completed/failed or timeout. Returns final status dict.
+
+        A 404 is treated as "not visible yet" rather than fatal: a long task whose
+        handle was stored while redis was briefly unavailable only reappears once
+        its terminal state is written. We tolerate that for the whole budget.
+        """
+        deadline = time.time() + max_wait
+        last: dict[str, Any] = {}
+        while time.time() < deadline:
+            try:
+                last = self.status(handle)
+            except requests.HTTPError as e:
+                if e.response is not None and e.response.status_code == 404:
+                    time.sleep(poll_interval)
+                    continue
+                raise
+            if last.get("status") in ("completed", "failed"):
+                return last
+            time.sleep(poll_interval)
+        last["_timed_out"] = True
+        return last
+
+
+# ── smoke test (read-only) ────────────────────────────────────────────────────
+def _smoke() -> int:
+    client = HarnessClient()
+    print(f"[smoke] base_url = {client.base_url}")
+
+    if not client.health():
+        print("[smoke] FAIL: /health did not return ok")
+        return 1
+    print("[smoke] health: ok")
+
+    bugs = client.list_bugs()
+    print(f"[smoke] list_defects_bugid: {len(bugs)} bugs (excluding '{config.EXCLUDE_SUBSTR}')")
+    if not bugs:
+        print("[smoke] FAIL: no bugs returned")
+        return 1
+    print(f"[smoke] first bug: {bugs[0]}")
+
+    defect = client.get_defect(bugs[0])
+    msgs = defect["prompt_data"]["prompt"]
+    temp = defect["prompt_data"].get("temperature")
+    print(f"[smoke] get_defect: bug_id={defect['bug_id']}")
+    print(f"[smoke]   {len(msgs)} prompt messages, temperature={temp}")
+    for m in msgs:
+        preview = m["content"].replace("\n", " ")[:80]
+        print(f"[smoke]   - {m['role']}: {preview}...")
+
+    print("[smoke] PASS: read-only endpoints healthy (no build/test triggered)")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    if "--smoke" in sys.argv:
+        sys.exit(_smoke())
+    print(__doc__)
