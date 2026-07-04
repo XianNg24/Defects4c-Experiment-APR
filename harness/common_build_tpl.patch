@@ -1,0 +1,32 @@
+diff --git a/defectsc_tpl/projects_v1/common_build_tpl.jinja b/defectsc_tpl/projects_v1/common_build_tpl.jinja
+index a566cc4..e622e5a 100644
+--- a/defectsc_tpl/projects_v1/common_build_tpl.jinja
++++ b/defectsc_tpl/projects_v1/common_build_tpl.jinja
+@@ -15,5 +15,26 @@ test_log=$2
+ {%endif%}
+ 
+ 
+-ninja -C $build_dir 
++{% if scope_test %}
++# Scoped build (sanitizer path): build ONLY the failing test's executable, not the
++# whole project — an ASan build of an entire project is huge and times out. Resolve
++# the ctest test name (test_flags) to its executable target via ctest's JSON, then
++# ninja just that. Falls back to a full build if resolution fails.
++_tgt=$(ctest --test-dir $build_dir --show-only=json-v1 -R "{{ test_flags|join('|') }}" 2>/dev/null | python3 -c '
++import json,sys,os
++try:
++    d=json.load(sys.stdin); print(os.path.relpath(d["tests"][0]["command"][0], sys.argv[1]))
++except Exception:
++    pass
++' "$build_dir")
++if [ -n "$_tgt" ]; then
++	echo "scoped sanitizer build target: $_tgt"
++	ninja -C $build_dir -j {{cpu_count}} "$_tgt"
++else
++	echo "scope_test: could not resolve target, building all"
++	ninja -C $build_dir -j {{cpu_count}}
++fi
++{% else %}
++ninja -C $build_dir -j {{cpu_count}}
++{% endif %}
+ 

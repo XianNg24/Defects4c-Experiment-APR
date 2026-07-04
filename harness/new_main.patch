@@ -1,5 +1,5 @@
 diff --git a/defectsc_tpl/new_main.py b/defectsc_tpl/new_main.py
-index 1de1d95..034e7a4 100644
+index 1de1d95..6bdd73b 100644
 --- a/defectsc_tpl/new_main.py
 +++ b/defectsc_tpl/new_main.py
 @@ -138,6 +138,7 @@ tasks:     Dict[str, dict]         = {}   # in-memory store for /reproduce tasks
@@ -24,7 +24,7 @@ index 1de1d95..034e7a4 100644
          self.project_major = PROJECTS_DIR[project]
          self.src_dir       = str(SRC_ROOT)
          self.wrk_git = self._make_dir(
-@@ -548,6 +550,22 @@ class BugsInfo:
+@@ -548,6 +550,23 @@ class BugsInfo:
              **compile_block,
          }
  
@@ -36,6 +36,7 @@ index 1de1d95..034e7a4 100644
 +        if sanitize:
 +            flags = f"-fsanitize={sanitize} -fno-omit-frame-pointer -g"
 +            self.meta_info["build_dir"] = f"build_{sha}_asan"
++            self.meta_info["scope_test"] = True   # build only the failing test target (ASan is slow)
 +            self.meta_info["env"] = list(self.meta_info.get("env") or []) + [
 +                f'CFLAGS="{flags}"',
 +                f'CXXFLAGS="{flags}"',
@@ -47,7 +48,7 @@ index 1de1d95..034e7a4 100644
      def _make_dir(self, *candidates: Path) -> Path:
          for i, p in enumerate(candidates):
              if p.exists() or i == 0:
-@@ -646,8 +664,10 @@ async def run_reproduce_queue(instance: BugsInfo, log_path: str, handle: str, fo
+@@ -646,8 +665,10 @@ async def run_reproduce_queue(instance: BugsInfo, log_path: str, handle: str, fo
      lock = sha_locks.setdefault(instance.sha, asyncio.Lock())
      async with lock:
          tasks[handle]["status"] = "running"
@@ -59,7 +60,7 @@ index 1de1d95..034e7a4 100644
              tasks[handle]["result"] = {"log_file": log_path, "return_code": rc}
              tasks[handle]["status"] = "completed" if rc == 0 else "failed"
              if rc != 0:
-@@ -655,6 +675,8 @@ async def run_reproduce_queue(instance: BugsInfo, log_path: str, handle: str, fo
+@@ -655,6 +676,8 @@ async def run_reproduce_queue(instance: BugsInfo, log_path: str, handle: str, fo
          except Exception:
              tasks[handle]["status"] = "failed"
              tasks[handle]["error"]  = traceback.format_exc()
@@ -68,7 +69,7 @@ index 1de1d95..034e7a4 100644
  
  def _build_fix_task(instance, patch, log_path, redis_key, result_data, rc, cached=False):
      return {
-@@ -713,7 +735,8 @@ async def run_fix_queue(instance: BugsInfo, patch: str, log_path: str, handle: s
+@@ -713,7 +736,8 @@ async def run_fix_queue(instance: BugsInfo, patch: str, log_path: str, handle: s
                  print(f"Error reading existing log files: {e}")
  
          try:
@@ -78,7 +79,7 @@ index 1de1d95..034e7a4 100644
              rd = prepare_result_data(instance, patch_md5, rc,
                                        f"run_patch.sh exited {rc}" if rc != 0 else "")
              store_task_in_redis(handle, _build_fix_task(instance, patch, log_path, redis_key, rd, rc))
-@@ -1082,15 +1105,20 @@ def list_projects():
+@@ -1082,15 +1106,20 @@ def list_projects():
  def reproduce(req: ReproduceRequest, background_tasks: BackgroundTasks):
      try:
          project, sha = parse_bug_id(req.bug_id)

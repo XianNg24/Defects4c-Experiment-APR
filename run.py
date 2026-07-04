@@ -30,6 +30,9 @@ console = Console()
 def select_bugs(client: HarnessClient, args) -> list[str]:
     if args.bug_id:
         return [args.bug_id]
+    if args.bugs_file:
+        with open(args.bugs_file) as f:
+            return [l.strip() for l in f if l.strip() and not l.startswith("#")]
     bugs = client.list_bugs()
     if args.project:
         bugs = [b for b in bugs if b.split("@")[0] == args.project]
@@ -41,6 +44,7 @@ def select_bugs(client: HarnessClient, args) -> list[str]:
 def main() -> int:
     p = argparse.ArgumentParser(description="Agentic APR for Defects4C")
     p.add_argument("--bug-id", help="single bug (project@sha)")
+    p.add_argument("--bugs-file", help="file with one bug id per line")
     p.add_argument("--project", help="restrict to one project")
     p.add_argument("--limit", type=int, help="max number of bugs")
     p.add_argument("--k", type=int, default=config.K_CANDIDATES)
