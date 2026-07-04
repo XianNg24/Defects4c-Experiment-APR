@@ -106,17 +106,22 @@ class HarnessClient:
         return self.wait_for_fix(handle, poll_interval=poll_interval, max_wait=max_wait)
 
     def read_test_logs(self, bug_id: str) -> str:
-        """Return the BUGGY revision's test log from the host mount — the failing
-        run we diagnose (the sanitizer report / crash / assertion lives here).
-        Falls back to the fixed-run log only if the buggy log is absent."""
+        """Return the BUGGY revision's failure output from the host mount — the run
+        we diagnose (sanitizer report / crash / assertion lives here).
+
+        The bug set writes a ctest `.log`; the vulnerability set writes its
+        sanitizer oracle to `.msg` (with no `.log`), so we try both extensions,
+        buggy before fixed, returning the first non-empty."""
         import os
         project, sha = bug_id.split("@", 1)
         logdir = os.path.join(config.OUT_DIR, project, "logs")
-        for name in (f"test_{sha}_buggy.log", f"test_{sha}_fix.log"):
-            p = os.path.join(logdir, name)
-            if os.path.exists(p):
-                with open(p, errors="replace") as f:
-                    return f.read()
+        for stem in (f"test_{sha}_buggy", f"test_{sha}_fix"):
+            for ext in (".log", ".msg"):
+                p = os.path.join(logdir, stem + ext)
+                if os.path.exists(p):
+                    txt = open(p, errors="replace").read()
+                    if txt.strip():
+                        return txt
         return ""
 
     def fix(self, bug_id: str, patch_path: str) -> str:
