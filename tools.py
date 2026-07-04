@@ -123,7 +123,30 @@ class CompileDiagTool(Tool):
         return ToolResult(self.name, block, {"compile_error": ce})
 
 
-REGISTRY: list[Tool] = [SanitizerRebuildTool(), TestDiffTool(), CompileDiagTool()]
+class FailingTestTool(Tool):
+    name = "failing_test"
+    description = ("Show the source of the failing test — the assertions/conditions "
+                  "your fix must satisfy. Ask for this to see exactly what behavior "
+                  "the test expects.")
+
+    def applicable(self, evidence: dict) -> bool:
+        # any real failure where a test ran (not a pure compile error)
+        return evidence.get("failure_class") in (
+            "crash", "assertion_mismatch", "timeout", "unknown", "sanitizer_report")
+
+    def run(self, ctx: ToolContext) -> ToolResult:
+        import test_source
+        block = test_source.failing_tests(ctx.bug_id, ctx.log_text)
+        if not block:
+            return ToolResult(self.name, "", {"note": "failing-test source not found"})
+        return ToolResult(
+            self.name,
+            "Failing test (the conditions your fix must satisfy):\n```c\n" + block + "\n```",
+            {"chars": len(block)})
+
+
+REGISTRY: list[Tool] = [SanitizerRebuildTool(), FailingTestTool(),
+                        TestDiffTool(), CompileDiagTool()]
 _BY_NAME = {t.name: t for t in REGISTRY}
 
 
