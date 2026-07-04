@@ -39,6 +39,7 @@ class AgentState:
     attempts: list = field(default_factory=list)
     winner: Optional[dict] = None   # summary of the passing attempt, if any
     diagnosis: Optional[dict] = None   # Phase 2: {evidence, tools_used, blocks}
+    infra_blocked: bool = False     # baseline doesn't build (env/toolchain) — not a model failure
 
     def add_attempt(self, **kw) -> Attempt:
         a = Attempt(**kw)
@@ -66,6 +67,7 @@ class AgentState:
             "temperature": self.temperature,
             "solved": self.solved,
             "winner": self.winner,
+            "infra_blocked": self.infra_blocked,
             "diagnosis": self.diagnosis,
             "n_attempts": len(self.attempts),
             "attempts": [asdict(a) for a in self.attempts],

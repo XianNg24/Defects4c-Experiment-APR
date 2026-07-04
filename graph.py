@@ -329,6 +329,12 @@ class RepairRunner:
             messages, record = self._diagnose(bug_id, messages, art)
             state.diagnosis = record
             state.mode = record["evidence"].get("failure_class", "static")
+            # Tier 3: if the buggy baseline itself doesn't build, the bug is
+            # untestable — an environment/toolchain problem, not a model failure.
+            # Skip repair and mark it so it's excluded from pass@k.
+            if state.mode == "compile_error":
+                state.infra_blocked = True
+                return state
 
         init: GState = {
             "round_idx": 0,

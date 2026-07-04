@@ -98,6 +98,7 @@ def main() -> int:
                           max_tool_requests=args.max_tool_requests, use_critic=use_critic)
 
     n_solved = 0
+    n_infra = 0
     for i, bug_id in enumerate(bugs, 1):
         console.print(f"[cyan][{i}/{len(bugs)}][/cyan] {bug_id} ...", end=" ")
         try:
@@ -119,21 +120,28 @@ def main() -> int:
         art.write_trace(state)
         solved = state.solved
         n_solved += int(solved)
+        n_infra += int(state.infra_blocked)
         rounds_used = max((a.round_idx for a in state.attempts), default=0) + 1
-        console.print("[green]SOLVED[/green]" if solved else "[yellow]unsolved[/yellow]",
-                      f"({len(state.attempts)} attempts, {rounds_used} rounds)")
+        if state.infra_blocked:
+            console.print("[magenta]infra-blocked[/magenta] (baseline doesn't build)")
+        else:
+            console.print("[green]SOLVED[/green]" if solved else "[yellow]unsolved[/yellow]",
+                          f"({len(state.attempts)} attempts, {rounds_used} rounds)")
         run_art.append_result({
             "bug_id": bug_id, "project": state.project, "solved": solved,
+            "infra_blocked": state.infra_blocked,
             "n_attempts": len(state.attempts), "rounds_used": rounds_used,
             "winner": state.winner,
         })
 
-    # ── summary ──
+    # ── summary ── pass@k is over buildable bugs only (infra-blocked excluded)
+    n_buildable = max(len(bugs) - n_infra, 1)
     tbl = Table(title=f"{run_id} — pass@{args.k}")
     tbl.add_column("metric"); tbl.add_column("value", justify="right")
     tbl.add_row("bugs", str(len(bugs)))
-    tbl.add_row(f"solved (pass@{args.k})", f"{n_solved}/{len(bugs)}")
-    tbl.add_row("solve rate", f"{100*n_solved/len(bugs):.1f}%")
+    tbl.add_row("infra-blocked (baseline won't build)", str(n_infra))
+    tbl.add_row(f"solved (pass@{args.k}, of buildable)", f"{n_solved}/{n_buildable}")
+    tbl.add_row("solve rate (buildable)", f"{100*n_solved/n_buildable:.1f}%")
     console.print()
     console.print(tbl)
     console.print(f"\nResults: {run_art.results_path}")

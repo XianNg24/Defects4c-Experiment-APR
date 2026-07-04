@@ -64,11 +64,12 @@ td.num{font-variant-numeric:tabular-nums;text-align:right}
 .badge.good{color:var(--good-ink);background:var(--add-bg)}
 .badge.bad{color:var(--critical);background:var(--del-bg)}
 .badge.err{color:var(--warning);background:rgba(250,178,25,.14)}
+.badge.infra{color:#7d78b8;background:rgba(74,58,167,.14)}
 .chip{display:inline-block;font-size:12px;color:var(--ink2);background:var(--chip);
   border:1px solid var(--border);border-radius:6px;padding:1px 8px;font-variant-numeric:tabular-nums}
 .pbar{display:flex;height:12px;border-radius:6px;overflow:hidden;gap:2px;background:transparent}
 .pbar span{display:block}
-.seg-good{background:var(--good)} .seg-bad{background:var(--muted)} .seg-err{background:var(--critical)}
+.seg-good{background:var(--good)} .seg-bad{background:var(--muted)} .seg-err{background:var(--critical)} .seg-infra{background:#9088c0}
 .proj{display:grid;grid-template-columns:180px 1fr 90px;gap:12px;align-items:center;margin:8px 0;font-size:13px}
 .proj .lbl{color:var(--ink2)} .proj .cnt{color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:14px 0}
@@ -258,10 +259,13 @@ def _safe_bug_dir(bug_id: str) -> str:
 
 
 def _status(r: dict, traces: dict) -> str:
-    """True per-bug status recomputed from the trace's verdicts, not stale flags."""
+    """True per-bug status recomputed from the trace's verdicts, not stale flags.
+    s=solved, u=unsolved, e=errored, i=infra-blocked (baseline won't build)."""
     if r.get("error"):
         return "e"
     tr = traces.get(r.get("bug_id"))
+    if tr and tr.get("infra_blocked"):
+        return "i"
     if tr and bug_solved(tr):
         return "s"
     return "u"
@@ -272,34 +276,38 @@ def render_dashboard(meta: dict, rows: list, traces: dict, single: bool = False)
     st = {r.get("bug_id"): _status(r, traces) for r in rows}
     solved = [b for b, s in st.items() if s == "s"]
     errored = [b for b, s in st.items() if s == "e"]
+    infra = [b for b, s in st.items() if s == "i"]
     fps = sum(1 for tr in traces.values() if bug_false_positive(tr) and not bug_solved(tr))
-    rate = (100 * len(solved) / n) if n else 0
+    buildable = max(n - len(infra) - len(errored), 1)
+    rate = 100 * len(solved) / buildable
     k = meta.get("k", 1)
 
     tiles = ("<div class='tiles'>"
              + _tile("bugs", str(n))
-             + _tile(f"solved (pass@{k}, true)", f"{len(solved)}/{n}", good=True)
-             + _tile("solve rate", f"{rate:.0f}%", good=True)
+             + _tile(f"solved (pass@{k}, of buildable)", f"{len(solved)}/{buildable}", good=True)
+             + _tile("solve rate (buildable)", f"{rate:.0f}%", good=True)
+             + _tile("infra-blocked", str(len(infra)))
              + _tile("false positives (rc-only)", str(fps))
-             + _tile("errored", str(len(errored)))
              + _tile("model", str(meta.get("model", "?")).split("/")[-1])
              + "</div>"
              + "<div class='sub' style='margin-top:8px'>Pass = compiles <b>and</b> tests "
-               "pass (return_code==0 AND fix_status==success). “False positives” "
-               "counts bugs the old return_code-only oracle would have marked solved but "
-               "whose tests actually failed.</div>")
+               "pass (return_code==0 AND fix_status==success), over <b>buildable</b> bugs "
+               "only. “Infra-blocked” = the buggy baseline doesn’t compile in the container "
+               "(toolchain/deps), so the bug is untestable — excluded from pass@k, not a "
+               "model failure. “False positives” = bugs the old return_code-only oracle "
+               "would have marked solved but whose tests actually failed.</div>")
 
     # per-project stacked breakdown (recomputed status)
     projs: dict[str, dict] = {}
     for r in rows:
         p = r.get("project") or r.get("bug_id", "?").split("@")[0]
-        d = projs.setdefault(p, {"s": 0, "u": 0, "e": 0, "n": 0})
+        d = projs.setdefault(p, {"s": 0, "u": 0, "e": 0, "i": 0, "n": 0})
         d["n"] += 1
         d[_status(r, traces)] += 1
     proj_html = ["<h2>Per-project breakdown</h2>"]
     for p, d in sorted(projs.items(), key=lambda kv: -kv[1]["n"]):
         segs = ""
-        for cls, key in (("seg-good", "s"), ("seg-bad", "u"), ("seg-err", "e")):
+        for cls, key in (("seg-good", "s"), ("seg-bad", "u"), ("seg-infra", "i"), ("seg-err", "e")):
             if d[key]:
                 segs += f"<span class='{cls}' style='flex:{d[key]}'></span>"
         proj_html.append(
@@ -315,6 +323,8 @@ def render_dashboard(meta: dict, rows: list, traces: dict, single: bool = False)
         status = _status(r, traces)
         if status == "e":
             badge = "<span class='badge err'>⚠ error</span>"
+        elif status == "i":
+            badge = "<span class='badge infra'>⚙ infra-blocked</span>"
         elif status == "s":
             badge = "<span class='badge good'>✔ solved</span>"
         elif tr and bug_false_positive(tr):

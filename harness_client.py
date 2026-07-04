@@ -122,6 +122,14 @@ class HarnessClient:
                     txt = open(p, errors="replace").read()
                     if txt.strip():
                         return txt
+        # No test log → the build likely failed before any test ran. Fall back to
+        # the reproduce/build log so the build/configure error is still captured
+        # (Tier 1: otherwise the failure is silently invisible).
+        bl = os.path.join(logdir, f"{sha}.log")
+        if os.path.exists(bl):
+            txt = open(bl, errors="replace").read()
+            if txt.strip():
+                return txt
         return ""
 
     def fix(self, bug_id: str, patch_path: str) -> str:
