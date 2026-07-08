@@ -1,8 +1,16 @@
 diff --git a/defectsc_tpl/new_main.py b/defectsc_tpl/new_main.py
-index 1de1d95..6bdd73b 100644
+index 1de1d95..c37d4ed 100644
 --- a/defectsc_tpl/new_main.py
 +++ b/defectsc_tpl/new_main.py
-@@ -138,6 +138,7 @@ tasks:     Dict[str, dict]         = {}   # in-memory store for /reproduce tasks
+@@ -31,6 +31,7 @@ import os
+ import random
+ import re
+ import shlex
++import signal
+ import stat
+ import subprocess
+ import tempfile
+@@ -138,6 +139,7 @@ tasks:     Dict[str, dict]         = {}   # in-memory store for /reproduce tasks
  class ReproduceRequest(BaseModel):
      bug_id: str
      is_force_cleanup: bool = True
@@ -10,8 +18,33 @@ index 1de1d95..6bdd73b 100644
  
  class FixRequest(BaseModel):
      bug_id: str
-@@ -483,11 +484,12 @@ def exec_cmd(cmd_info: dict, *, raise_on_error: bool = True) -> int:
-     return proc.returncode
+@@ -477,17 +479,33 @@ def cache_result(redis_key: str, result_data: dict):
+ 
+ def exec_cmd(cmd_info: dict, *, raise_on_error: bool = True) -> int:
+     cmd = cmd_info.pop("cmd")
+-    proc = subprocess.run(shlex.split(cmd), **cmd_info)
+-    if raise_on_error and proc.returncode != 0:
+-        raise subprocess.CalledProcessError(proc.returncode, cmd)
+-    return proc.returncode
++    timeout = cmd_info.pop("timeout", None)
++    # Run in a NEW process group (start_new_session=setsid) so that on timeout we
++    # can kill the WHOLE process tree — the shell plus its build grandchildren
++    # (e.g. ./configure / autotest / ninja). subprocess.run's timeout only kills
++    # the top shell, orphaning runaway children that then spin forever and fill
++    # the disk (njs autotest). On timeout we SIGKILL the process group.
++    proc = subprocess.Popen(shlex.split(cmd), start_new_session=True, **cmd_info)
++    try:
++        rc = proc.wait(timeout=timeout)
++    except subprocess.TimeoutExpired:
++        try:
++            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
++        except ProcessLookupError:
++            pass
++        proc.wait()
++        rc = 124  # conventional timeout exit code
++    if raise_on_error and rc != 0:
++        raise subprocess.CalledProcessError(rc, cmd)
++    return rc
  
  class BugsInfo:
 -    def __init__(self, project: str, sha: str):
@@ -24,7 +57,7 @@ index 1de1d95..6bdd73b 100644
          self.project_major = PROJECTS_DIR[project]
          self.src_dir       = str(SRC_ROOT)
          self.wrk_git = self._make_dir(
-@@ -548,6 +550,23 @@ class BugsInfo:
+@@ -548,6 +566,23 @@ class BugsInfo:
              **compile_block,
          }
  
@@ -48,7 +81,7 @@ index 1de1d95..6bdd73b 100644
      def _make_dir(self, *candidates: Path) -> Path:
          for i, p in enumerate(candidates):
              if p.exists() or i == 0:
-@@ -646,8 +665,10 @@ async def run_reproduce_queue(instance: BugsInfo, log_path: str, handle: str, fo
+@@ -646,8 +681,10 @@ async def run_reproduce_queue(instance: BugsInfo, log_path: str, handle: str, fo
      lock = sha_locks.setdefault(instance.sha, asyncio.Lock())
      async with lock:
          tasks[handle]["status"] = "running"
@@ -60,7 +93,7 @@ index 1de1d95..6bdd73b 100644
              tasks[handle]["result"] = {"log_file": log_path, "return_code": rc}
              tasks[handle]["status"] = "completed" if rc == 0 else "failed"
              if rc != 0:
-@@ -655,6 +676,8 @@ async def run_reproduce_queue(instance: BugsInfo, log_path: str, handle: str, fo
+@@ -655,6 +692,8 @@ async def run_reproduce_queue(instance: BugsInfo, log_path: str, handle: str, fo
          except Exception:
              tasks[handle]["status"] = "failed"
              tasks[handle]["error"]  = traceback.format_exc()
@@ -69,7 +102,7 @@ index 1de1d95..6bdd73b 100644
  
  def _build_fix_task(instance, patch, log_path, redis_key, result_data, rc, cached=False):
      return {
-@@ -713,7 +736,8 @@ async def run_fix_queue(instance: BugsInfo, patch: str, log_path: str, handle: s
+@@ -713,7 +752,8 @@ async def run_fix_queue(instance: BugsInfo, patch: str, log_path: str, handle: s
                  print(f"Error reading existing log files: {e}")
  
          try:
@@ -79,7 +112,7 @@ index 1de1d95..6bdd73b 100644
              rd = prepare_result_data(instance, patch_md5, rc,
                                        f"run_patch.sh exited {rc}" if rc != 0 else "")
              store_task_in_redis(handle, _build_fix_task(instance, patch, log_path, redis_key, rd, rc))
-@@ -1082,15 +1106,20 @@ def list_projects():
+@@ -1082,15 +1122,20 @@ def list_projects():
  def reproduce(req: ReproduceRequest, background_tasks: BackgroundTasks):
      try:
          project, sha = parse_bug_id(req.bug_id)
