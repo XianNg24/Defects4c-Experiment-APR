@@ -49,5 +49,8 @@ MAX_TOOL_REQUESTS = int(os.environ.get("APR_MAX_TOOL_REQUESTS", "1"))
 # replaces the raw log-tail feedback in the next repair round.
 USE_CRITIC = os.environ.get("APR_CRITIC", "1") not in ("0", "false", "")
 
-# Recommend filtering llvm defects out of interactive runs (CPU-heavy).
-EXCLUDE_SUBSTR = os.environ.get("APR_EXCLUDE_SUBSTR", "llvm___llvm")
+# Comma-separated substrings; a bug is skipped if it contains ANY of them.
+# Excluded by default: llvm (CPU-heavy) and njs (its ./configure/autotest hangs
+# in a loop, spews GBs into autoconf.err, and orphans a runaway process that
+# fills the disk — see host-resource-limits memory).
+EXCLUDE_SUBSTR = os.environ.get("APR_EXCLUDE_SUBSTR", "llvm___llvm,nginx___njs")

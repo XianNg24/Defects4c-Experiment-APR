@@ -57,7 +57,8 @@ class HarnessClient:
             raise HarnessError(f"list_defects_bugid failed: {data}")
         bugs = data.get("defects", [])
         if exclude_substr:
-            bugs = [b for b in bugs if exclude_substr not in b]
+            subs = [s.strip() for s in exclude_substr.split(",") if s.strip()]
+            bugs = [b for b in bugs if not any(s in b for s in subs)]
         return bugs
 
     def get_defect(self, bug_id: str) -> dict[str, Any]:
