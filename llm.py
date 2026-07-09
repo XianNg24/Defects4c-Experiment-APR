@@ -52,6 +52,20 @@ def served_precision(model: str = None) -> str:
     return "unknown"
 
 
+def _merge_consecutive(messages: list[dict]) -> list[dict]:
+    """Merge adjacent same-role messages into one. Some chat templates (CodeLlama,
+    Llama-2) require strict user/assistant alternation and 400 on two consecutive
+    user turns — which our diagnosis/tool-request/repair-feedback paths can produce.
+    Merging is a no-op for lenient templates (deepseek)."""
+    out: list[dict] = []
+    for m in messages:
+        if out and out[-1]["role"] == m["role"]:
+            out[-1]["content"] = out[-1]["content"].rstrip() + "\n\n" + m["content"]
+        else:
+            out.append(dict(m))
+    return out
+
+
 def generate(messages: list[dict], *, k: int = 1,
              temperature: float = 0.7, seed: int = config.SEED,
              model: str = config.OPENAI_MODEL,
@@ -63,7 +77,7 @@ def generate(messages: list[dict], *, k: int = 1,
     """
     resp = _client().chat.completions.create(
         model=model,
-        messages=messages,
+        messages=_merge_consecutive(messages),
         temperature=temperature,
         max_tokens=max_tokens,
         n=k,

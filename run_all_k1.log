@@ -1,226 +1,88 @@
 nohup: ignoring input
-Run run_20260709-084236  model=deepseek-ai/deepseek-coder-6.7b-instruct  k=2  
-repair_rounds=1  bugs=152
+Run run_20260709-202420  model=codellama/CodeLlama-7b-Instruct-hf (bfloat16)  
+k=2  repair_rounds=1  bugs=152
 Artifacts: 
 /home/ubuntu/min-xian/codebase/DEFECTS4C-CODE-REPAIR/agentic_apr/runs/run_202607
-09-084236
+09-202420
 
-[1/152] CESNET___libyang@140ede9c075c604632a87ee3bf0e881fb485d0e7 ... unsolved (3 attempts, 2 rounds)
-[2/152] CESNET___libyang@24bd22f5e40f37fb6ae796bb8eebc9de58bae00e ... unsolved (3 attempts, 2 rounds)
-[3/152] CESNET___libyang@350a6bf69e03d19fe996cba992b49556ae2ce8ab ... unsolved (3 attempts, 2 rounds)
-[4/152] CESNET___libyang@509d721c2b61088c1e491c330c48b0cc01dc191e ... unsolved (3 attempts, 2 rounds)
-[5/152] CESNET___libyang@7c7783df75b9a5dfc6cc22c70b9467d47aa913d2 ... unsolved (3 attempts, 2 rounds)
-[6/152] CESNET___libyang@812a5bff4857a485db96fe7269af944d0bdb91b3 ... unsolved (3 attempts, 2 rounds)
-[7/152] CESNET___libyang@823fbe0f7a7b50b7c80cfd948eb3c189579126ab ... unsolved (3 attempts, 2 rounds)
-[8/152] CESNET___libyang@9cdb9e6f60d6bae42675bc3b46f5741e50b62e68 ... unsolved (3 attempts, 2 rounds)
-[9/152] CESNET___libyang@a353cce850560bea761d67a2fbcaf9cb271f586f ... SOLVED (2 attempts, 1 rounds)
-[10/152] CESNET___libyang@b6ecaeaa0391745ec9054cc4351ac4049317576c ... unsolved (3 attempts, 2 rounds)
-[11/152] CESNET___libyang@cdcace7230352a25eb21a488e7f42d004b3de3e1 ... unsolved (3 attempts, 2 rounds)
-[12/152] CESNET___libyang@ea0f96cf45deed39fb98b28f30d0acdc304db243 ... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
-[13/152] CESNET___libyang@fff4dca0da454cdff4c8fab70b4a62c0674fb862 ... unsolved (3 attempts, 2 rounds)
-[14/152] CLIUtils___CLI11@020a21afc65fe843efca5b2f74e3d5b502425f76 ... unsolved (3 attempts, 2 rounds)
-[15/152] CLIUtils___CLI11@dcbcb4721dda5dab0a56d9faaaee50e6a30f7758 ... unsolved (3 attempts, 2 rounds)
-[16/152] CLIUtils___CLI11@de215ef978104a0e9efdc7b78a9d58cd529cf17a ... unsolved (3 attempts, 2 rounds)
-[17/152] ClusterLabs___libqb@1bbaa929b77113532785c408dd1b41cd0521ffc8 ... unsolved (3 attempts, 2 rounds)
-[18/152] DaveGamble___cJSON@be749d7efa7c9021da746e685bd6dec79f9dd99b ... unsolved (3 attempts, 2 rounds)
-[19/152] KhronosGroup___SPIRV-Tools@0391d0823ebfd7c37c07a54b8726cc417183a95f ...unsolved (3 attempts, 2 rounds)
-[20/152] KhronosGroup___SPIRV-Tools@0a43a84e02245cca40ce187d1e427a5d0b4f3d13 ...unsolved (3 attempts, 2 rounds)
-[21/152] KhronosGroup___SPIRV-Tools@0a5d99d02cb8c0edd41c7a9d4f309c0974d076d0 ...unsolved (3 attempts, 2 rounds)
-[22/152] KhronosGroup___SPIRV-Tools@0ad83f9139daf70a791560f5c72f94b0be5b8390 ...error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
-[23/152] KhronosGroup___SPIRV-Tools@286b3095dd187da747f85baf9ce3120580565df0 ...SOLVED (1 attempts, 1 rounds)
-[24/152] KhronosGroup___SPIRV-Tools@4fa1a6f9b497193e54a814112f17ab3c2cf58053 ...SOLVED (1 attempts, 1 rounds)
-[25/152] KhronosGroup___SPIRV-Tools@54385458ca2f7a7b06699e441822753dbc2d018d ...unsolved (3 attempts, 2 rounds)
-[26/152] KhronosGroup___SPIRV-Tools@6a9be627c760cf1efa43d155d4e6ee5e801deba3 ...unsolved (3 attempts, 2 rounds)
-[27/152] KhronosGroup___SPIRV-Tools@948577c5df3a6f0d337ab417b26edcc344eb65e2 ...SOLVED (1 attempts, 1 rounds)
-[28/152] KhronosGroup___SPIRV-Tools@ab3cdcaef56e9311f299eebfd044f9646100c9dc ...unsolved (3 attempts, 2 rounds)
-[29/152] KhronosGroup___SPIRV-Tools@d5a3bfcf2ffd154a244e7ffae54dd1766d98efa4 ...unsolved (3 attempts, 2 rounds)
+[1/152] CESNET___libyang@140ede9c075c604632a87ee3bf0e881fb485d0e7 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[2/152] CESNET___libyang@24bd22f5e40f37fb6ae796bb8eebc9de58bae00e ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[3/152] CESNET___libyang@350a6bf69e03d19fe996cba992b49556ae2ce8ab ... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
+[4/152] CESNET___libyang@509d721c2b61088c1e491c330c48b0cc01dc191e ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[5/152] CESNET___libyang@7c7783df75b9a5dfc6cc22c70b9467d47aa913d2 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[6/152] CESNET___libyang@812a5bff4857a485db96fe7269af944d0bdb91b3 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[7/152] CESNET___libyang@823fbe0f7a7b50b7c80cfd948eb3c189579126ab ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[8/152] CESNET___libyang@9cdb9e6f60d6bae42675bc3b46f5741e50b62e68 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[9/152] CESNET___libyang@a353cce850560bea761d67a2fbcaf9cb271f586f ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[10/152] CESNET___libyang@b6ecaeaa0391745ec9054cc4351ac4049317576c ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[11/152] CESNET___libyang@cdcace7230352a25eb21a488e7f42d004b3de3e1 ... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
+[12/152] CESNET___libyang@ea0f96cf45deed39fb98b28f30d0acdc304db243 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[13/152] CESNET___libyang@fff4dca0da454cdff4c8fab70b4a62c0674fb862 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[14/152] CLIUtils___CLI11@020a21afc65fe843efca5b2f74e3d5b502425f76 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[15/152] CLIUtils___CLI11@dcbcb4721dda5dab0a56d9faaaee50e6a30f7758 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[16/152] CLIUtils___CLI11@de215ef978104a0e9efdc7b78a9d58cd529cf17a ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[17/152] ClusterLabs___libqb@1bbaa929b77113532785c408dd1b41cd0521ffc8 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[18/152] DaveGamble___cJSON@be749d7efa7c9021da746e685bd6dec79f9dd99b ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[19/152] KhronosGroup___SPIRV-Tools@0391d0823ebfd7c37c07a54b8726cc417183a95f ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[20/152] KhronosGroup___SPIRV-Tools@0a43a84e02245cca40ce187d1e427a5d0b4f3d13 ...error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
+[21/152] KhronosGroup___SPIRV-Tools@0a5d99d02cb8c0edd41c7a9d4f309c0974d076d0 ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[22/152] KhronosGroup___SPIRV-Tools@0ad83f9139daf70a791560f5c72f94b0be5b8390 ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[23/152] KhronosGroup___SPIRV-Tools@286b3095dd187da747f85baf9ce3120580565df0 ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[24/152] KhronosGroup___SPIRV-Tools@4fa1a6f9b497193e54a814112f17ab3c2cf58053 ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[25/152] KhronosGroup___SPIRV-Tools@54385458ca2f7a7b06699e441822753dbc2d018d ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[26/152] KhronosGroup___SPIRV-Tools@6a9be627c760cf1efa43d155d4e6ee5e801deba3 ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[27/152] KhronosGroup___SPIRV-Tools@948577c5df3a6f0d337ab417b26edcc344eb65e2 ...SOLVED (2 attempts, 1 rounds)
+[28/152] KhronosGroup___SPIRV-Tools@ab3cdcaef56e9311f299eebfd044f9646100c9dc ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
+[29/152] KhronosGroup___SPIRV-Tools@d5a3bfcf2ffd154a244e7ffae54dd1766d98efa4 ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
+alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
+'param': None, 'code': 400}}
 [30/152] OpenIDC___cjose@7325e9a5e71e2fc0e350487ecac7d84acdf0ed5e ... infra-blocked (baseline doesn't build)
-[31/152] PCRE2Project___pcre2@50a51cb7e67268e6ad417eb07c9de9bfea5cc55a ... error: Error code: 400 - {'error': {'message': "This model's maximum context 
-length is 15360 tokens. However, you requested 4096 output tokens and your 
-prompt contains at least 11265 input tokens, for a total of at least 15361 
-tokens. Please reduce the length of the input prompt or the number of requested 
-output tokens. (parameter=input_tokens, value=11265)", 'type': 
-'BadRequestError', 'param': 'input_tokens', 'code': 400}}
-[32/152] SOCI___soci@9ff3016c00108f21760d438bfbb451188886274c ... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
-[33/152] VirusTotal___yara@4a342f01e5439b9bb901aff1c6c23c536baeeb3f ... infra-blocked (baseline doesn't build)
-[34/152] Yeraze___ytnef@3cb0f914d6427073f262e1b2b5fd973e3043cdf7 ... SOLVED (2 attempts, 1 rounds)
-[35/152] apache___arrow@0b4fa2a2bf80bf3a91f9f8f42fe313f78b8a1282 ... infra-blocked (baseline doesn't build)
-[36/152] apache___arrow@171e8bfe5fe13467a1763227e495fae6bc5d011d ... infra-blocked (baseline doesn't build)
-[37/152] apache___arrow@4a7e19e118907d0b1c7e1505697a5b74a541c9f7 ... infra-blocked (baseline doesn't build)
-[38/152] apache___arrow@68e0fa7499876fc0cf86b8be784a890226648645 ... unsolved (3 attempts, 2 rounds)
-[39/152] apache___arrow@912e2bb3345536c271580e3a9e88baaffb7f2836 ... SOLVED (1 attempts, 1 rounds)
-[40/152] apache___arrow@db004443e631fd72c0fd9a16a02294cd14b456e5 ... unsolved (3 attempts, 2 rounds)
-[41/152] apache___arrow@eea4a54f66a36137f4204876a68e6d5ed913cbc5 ... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
-[42/152] awslabs___aws-c-common@3367d5d13173664bc5018f5405adfa4d395c87ce ... unsolved (3 attempts, 2 rounds)
-[43/152] curl___curl@1890d59905414ab84a35892b2e45833654aa5c13 ... unsolved (3 attempts, 2 rounds)
-[44/152] danmar___cppcheck@099b4435c38dd52ddb38e6b1706d9c988699c082 ... unsolved (3 attempts, 2 rounds)
-[45/152] danmar___cppcheck@0c659a149953b9a67901a5b30259b7ef534bbaad ... SOLVED (3 attempts, 2 rounds)
-[46/152] danmar___cppcheck@0c6aabe4445f097539a5d1f2a73815e69ce3d52f ... unsolved (3 attempts, 2 rounds)
-[47/152] danmar___cppcheck@0ee3f678b52d0203d4b84abf65e5cac92f26a553 ... unsolved (3 attempts, 2 rounds)
-[48/152] danmar___cppcheck@192c30ab1d3ec97ae7c6955d8953fac133b8e4ff ... SOLVED (1 attempts, 1 rounds)
-[49/152] danmar___cppcheck@26bd863d0a4c5499258c9672fbb945343c3901dd ... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
-[50/152] danmar___cppcheck@272760f9cac187bd16ab4a596a0cab870ceb42be ... unsolved (3 attempts, 2 rounds)
-[51/152] danmar___cppcheck@290563b9640505d140684587e5c21e887d510495 ... unsolved (3 attempts, 2 rounds)
-[52/152] danmar___cppcheck@2daf7f5430f11def5fd1d67598487369f97c42f4 ... unsolved (3 attempts, 2 rounds)
-[53/152] danmar___cppcheck@398fa280213771a0fa7a649a54dd6e6625d48e20 ... SOLVED (2 attempts, 1 rounds)
-[54/152] danmar___cppcheck@43e4364675d4d47125b0d919039ba73dd4f6376e ... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/reproduce
-[55/152] danmar___cppcheck@46ac0d79c1036afb0c565e2bc330d9eb5ffa9eb1 ... unsolved (3 attempts, 2 rounds)
-[56/152] danmar___cppcheck@4779f0e1725c5807b329798e12dbeaddbf568b65 ... unsolved (3 attempts, 2 rounds)
-[57/152] danmar___cppcheck@4996ec190ecf27a4bf018eb0dcd12e2a51fd550e ... unsolved (3 attempts, 2 rounds)
-[58/152] danmar___cppcheck@4ad90bf6f1cb0149c79324dff027cf8558c041c1 ... unsolved (3 attempts, 2 rounds)
-[59/152] danmar___cppcheck@53734a3da1dd394aee9398127692b0e38e9ffa9f ... unsolved (3 attempts, 2 rounds)
-[60/152] danmar___cppcheck@68d77b73da0d86b8d18bf6fcbbf45e77a29a6b26 ... unsolved (3 attempts, 2 rounds)
-[61/152] danmar___cppcheck@6f2879a59b2c71b1fdb472471412c4b73184fea0 ... unsolved (3 attempts, 2 rounds)
-[62/152] danmar___cppcheck@797de4ef920dda5c569e5fd74e27731bc32053dd ... SOLVED (1 attempts, 1 rounds)
-[63/152] danmar___cppcheck@81a1d744c6e9d13f2fac894c380caafb270741df ... unsolved (3 attempts, 2 rounds)
-[64/152] danmar___cppcheck@c4dcfef38564e97442fb6c122f5e67c908e0c665 ... unsolved (3 attempts, 2 rounds)
-[65/152] danmar___cppcheck@caa6ff7c2a6ef64df53e04701944aaa4712a1915 ... unsolved (3 attempts, 2 rounds)
-[66/152] danmar___cppcheck@d0b6079a832d5c156af1e51274e09f28ee8677a7 ... unsolved (3 attempts, 2 rounds)
-[67/152] danmar___cppcheck@d2284ddbcd2a70b4a39047ae32b1c5662060407f ... unsolved (3 attempts, 2 rounds)
-[68/152] danmar___cppcheck@d909ac856569e39cb2f53b158c6246ac82d461b7 ... unsolved (3 attempts, 2 rounds)
-[69/152] danmar___cppcheck@ea2916a3e49934d482cd9b30b520c7873db4de82 ... unsolved (3 attempts, 2 rounds)
-[70/152] danmar___cppcheck@f1169bf2b43fc1beab0da21e430adaa0a7a9eb49 ... unsolved (3 attempts, 2 rounds)
-[71/152] danmar___cppcheck@f5dbfce8ffb3132bb49a155527a620c98e61b4a1 ... SOLVED (2 attempts, 1 rounds)
-[72/152] dlundquist___sniproxy@f8d9a433fe22ab2fa15c00179048ab02ae23d583 ... infra-blocked (baseline doesn't build)
-[73/152] facebook___rocksdb@1d2950b8dd38009d0719e4a857f5a42bb1bc9675 ... unsolved (3 attempts, 2 rounds)
-[74/152] facebook___rocksdb@b87c355772c0e1a643cbbd9799809d376073a6fe ... unsolved (3 attempts, 2 rounds)
-[75/152] facebook___rocksdb@cc8ded6152c51ac853d2915273eed3e6f9af029b ... unsolved (3 attempts, 2 rounds)
-[76/152] fmtlib___fmt@0cc73ebf79ec39ba74f3d31a76c0acb2df824908 ... unsolved (3 attempts, 2 rounds)
-[77/152] fmtlib___fmt@279d698e1b37f3f0a9b5c21b12198894d31c381d ... unsolved (3 attempts, 2 rounds)
-[78/152] fmtlib___fmt@2b7a146fa1f91ee3d7ebc6a782663185543bc373 ... unsolved (3 attempts, 2 rounds)
-[79/152] fmtlib___fmt@611cf0b3c644d33b9d347b824bf06bd594bfa564 ... unsolved (3 attempts, 2 rounds)
-[80/152] fmtlib___fmt@6a1346405949ca1cf5befc5e83c6c66c86e4f9d1 ... unsolved (3 attempts, 2 rounds)
-[81/152] fmtlib___fmt@6b7bfed40c559c06d2a4e074427dbc24819bd447 ... unsolved (3 attempts, 2 rounds)
-[82/152] fmtlib___fmt@96c18b26c28bbdb8305b79be4eacfb28ee4aa872 ... unsolved (3 attempts, 2 rounds)
-[83/152] fmtlib___fmt@971fb584c3ea548c12dcfa813b0bafb94e1c0fde ... unsolved (3 attempts, 2 rounds)
-[84/152] fmtlib___fmt@c04fb91b03cb6480c4a39b214efb6b05e452b20c ... unsolved (3 attempts, 2 rounds)
-[85/152] fmtlib___fmt@c1d430e61ab306e0e1d454fea6e07b4f66667a65 ... unsolved (3 attempts, 2 rounds)
-[86/152] fmtlib___fmt@cd7202e0399677942a5428a7db9dec1d3c8b5c45 ... unsolved (3 attempts, 2 rounds)
-[87/152] fmtlib___fmt@fc6e0fe992156935bfb66bb2121c62ee8446758e ... unsolved (3 attempts, 2 rounds)
-[88/152] jqlang___jq@71c2ab509a8628dbbad4bc7b3f98a64aa90d3297 ... unsolved (3 attempts, 2 rounds)
-[89/152] libevent___libevent@445027a5dcfe0acce431b7d4065d2ac1f6b270d7 ... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/reproduce
-[90/152] libevent___libevent@972b456bf60e9a2f550ec45a14921c06e252c793 ... unsolved (3 attempts, 2 rounds)
-[91/152] libgd___libgd@1846f48e5fcdde996e7c27a4bbac5d0aef183e4b ... infra-blocked (baseline doesn't build)
-[92/152] libgd___libgd@2bb97f407c1145c850416a3bfbcc8cf124e68a19 ... infra-blocked (baseline doesn't build)
-[93/152] libgd___libgd@58b6dde319c301b0eae27d12e2a659e067d80558 ... infra-blocked (baseline doesn't build)
-[94/152] libgd___libgd@69d2fd2c597ffc0c217de1238b9bf4d4bceba8e6 ... infra-blocked (baseline doesn't build)
-[95/152] libgd___libgd@77f619d48259383628c3ec4654b1ad578e9eb40e ... infra-blocked (baseline doesn't build)
-[96/152] libuv___libuv@3530bcc30350d4a6ccf35d2f7b33e23292b9de70 ... unsolved (3 attempts, 2 rounds)
-[97/152] lua___lua@1f3c6f4534c6411313361697d98d1145a1f030fa ... unsolved (3 attempts, 2 rounds)
-[98/152] lua___lua@ae5b5ba529753c7a653901ffc29b5ea24c3fdf3a ... unsolved (3 attempts, 2 rounds)
-[99/152] mongodb___mongo-c-driver@0d9a4d98bfdf4acd2c0138d4aaeb4e2e0934bd84 ... error: slice(-500, None, None)
-[100/152] nanomsg___nng@111b241473ceeecee1f1c232d3c9879fb850361d ... SOLVED (1 attempts, 1 rounds)
-[101/152] nanomsg___nng@e3b8f31b044e4fe7d47439467fc1622266b5335c ... unsolved (3 attempts, 2 rounds)
-[102/152] php___php-src@1bd103df00f49cf4d4ade2cfe3f456ac058a4eae ... infra-blocked (baseline doesn't build)
-[103/152] php___php-src@1cda0d7c2ffb62d8331c64e703131d9cabdc03ea ... infra-blocked (baseline doesn't build)
-[104/152] php___php-src@28a6ed9f9a36b9c517e4a8a429baf4dd382fc5d5 ... infra-blocked (baseline doesn't build)
-[105/152] php___php-src@698a691724c0a949295991e5df091ce16f899e02 ... infra-blocked (baseline doesn't build)
-[106/152] php___php-src@6dbb1ee46b5f4725cc6519abf91e512a2a10dfed ... infra-blocked (baseline doesn't build)
-[107/152] php___php-src@863d37ea66d5c960db08d6f4a2cbd2518f0f80d1 ... infra-blocked (baseline doesn't build)
-[108/152] php___php-src@abd159cce48f3e34f08e4751c568e09677d5ec9c ... infra-blocked (baseline doesn't build)
-[109/152] php___php-src@b88393f08a558eec14964a55d3c680fe67407712 ... infra-blocked (baseline doesn't build)
-[110/152] redis___hiredis@76a7b10005c70babee357a7d0f2becf28ec7ed1e ... unsolved (3 attempts, 2 rounds)
-[111/152] redis___redis@bc7fe41e5857a0854d524e2a63a028e9394d2a5c ... SOLVED (2 attempts, 1 rounds)
-[112/152] skypjack___entt@ad5bb5198bae3e41beafc96a0a509725df0d3f79 ... unsolved (3 attempts, 2 rounds)
-[113/152] sqlite___sqlite@54d501092d88c0cf89bec4279951f548fb0b8618 ... infra-blocked (baseline doesn't build)
-[114/152] sqlite___sqlite@a6c1a71cde082e09750465d5675699062922e387 ... infra-blocked (baseline doesn't build)
-[115/152] sqlite___sqlite@e59c562b3f6894f84c715772c4b116d7b5c01348 ... infra-blocked (baseline doesn't build)
-[116/152] sqlite___sqlite@ebd70eedd5d6e6a890a670b5ee874a5eae86b4dd ... infra-blocked (baseline doesn't build)
-[117/152] the-tcpdump-group___tcpdump@061e7371a944588f231cb1b66d6fb070b646e376 
-... unsolved (3 attempts, 2 rounds)
-[118/152] the-tcpdump-group___tcpdump@11b426ee05eb62ed103218526f1fa616851c43ce 
-... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
-[119/152] the-tcpdump-group___tcpdump@26a6799b9ca80508c05cac7a9a3bef922991520b 
-... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
-[120/152] the-tcpdump-group___tcpdump@289c672020280529fd382f3502efab7100d638ec 
-... error: Error code: 400 - {'error': {'message': "This model's maximum context 
-length is 15360 tokens. However, you requested 4096 output tokens and your 
-prompt contains at least 11265 input tokens, for a total of at least 15361 
-tokens. Please reduce the length of the input prompt or the number of requested 
-output tokens. (parameter=input_tokens, value=11265)", 'type': 
-'BadRequestError', 'param': 'input_tokens', 'code': 400}}
-[121/152] the-tcpdump-group___tcpdump@29e5470e6ab84badbc31f4532bb7554a796d9d52 
-... unsolved (3 attempts, 2 rounds)
-[122/152] the-tcpdump-group___tcpdump@2d669862df7cd17f539129049f6fb70d17174125 
-... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
-[123/152] the-tcpdump-group___tcpdump@3b32029db354cbc875127869d9b12a9addc75b50 
-... error: Error code: 400 - {'error': {'message': "This model's maximum context 
-length is 15360 tokens. However, you requested 4096 output tokens and your 
-prompt contains at least 11265 input tokens, for a total of at least 15361 
-tokens. Please reduce the length of the input prompt or the number of requested 
-output tokens. (parameter=input_tokens, value=11265)", 'type': 
-'BadRequestError', 'param': 'input_tokens', 'code': 400}}
-[124/152] the-tcpdump-group___tcpdump@3c8a2b0e91d8d8947e89384dacf6b54673083e71 
-... error: Error code: 400 - {'error': {'message': "This model's maximum context 
-length is 15360 tokens. However, you requested 4096 output tokens and your 
-prompt contains at least 11265 input tokens, for a total of at least 15361 
-tokens. Please reduce the length of the input prompt or the number of requested 
-output tokens. (parameter=input_tokens, value=11265)", 'type': 
-'BadRequestError', 'param': 'input_tokens', 'code': 400}}
-[125/152] the-tcpdump-group___tcpdump@42073d54c53a496be40ae84152bbfe2c923ac7bc 
-... unsolved (3 attempts, 2 rounds)
-[126/152] the-tcpdump-group___tcpdump@571a6f33f47e7a2394fa08f925e534135c29cf1e 
-... unsolved (3 attempts, 2 rounds)
-[127/152] the-tcpdump-group___tcpdump@5d0d76e88ee2d3236d7e032589d6f1d4ec5f7b1e 
-... unsolved (3 attempts, 2 rounds)
-[128/152] the-tcpdump-group___tcpdump@67c7126062d59729cd421bb38f9594015c9907ba 
-... unsolved (3 attempts, 2 rounds)
-[129/152] the-tcpdump-group___tcpdump@6f5ba2b651cd9d4b7fa8ee5c4f94460645877c45 
-... unsolved (3 attempts, 2 rounds)
-[130/152] the-tcpdump-group___tcpdump@7335163a6ef82d46ff18f3e6099a157747241629 
-... unsolved (3 attempts, 2 rounds)
-[131/152] the-tcpdump-group___tcpdump@7d3aba9f06899d0128ef46e8a2fa143c6fad8f62 
-... unsolved (3 attempts, 2 rounds)
-[132/152] the-tcpdump-group___tcpdump@8509ef02eceb2bbb479cea10fe4a7ec6395f1a8b 
-... unsolved (3 attempts, 2 rounds)
-[133/152] the-tcpdump-group___tcpdump@8512734883227c11568bb35da1d48b9f8466f43f 
-... SOLVED (1 attempts, 1 rounds)
-[134/152] the-tcpdump-group___tcpdump@88b2dac837e81cf56dce05e6e7b5989332c0092d 
-... infra-blocked (baseline doesn't build)
-[135/152] the-tcpdump-group___tcpdump@8934a7d6307267d301182f19ed162563717e29e3 
-... infra-blocked (baseline doesn't build)
-[136/152] the-tcpdump-group___tcpdump@979dcefd7b259e9e233f77fe1c5312793bfd948f 
-... unsolved (3 attempts, 2 rounds)
-[137/152] the-tcpdump-group___tcpdump@a77ff09c46560bc895dea11dc9fe643486b056ac 
-... unsolved (3 attempts, 2 rounds)
-[138/152] the-tcpdump-group___tcpdump@a7e5f58f402e6919ec444a57946bade7dfd6b184 
-... SOLVED (2 attempts, 1 rounds)
-[139/152] the-tcpdump-group___tcpdump@aa0858100096a3490edf93034a80e66a4d61aad5 
-... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
-[140/152] the-tcpdump-group___tcpdump@b8e559afaeb8fe0604a1f8e3ad4dc1445de07a00 
-... unsolved (3 attempts, 2 rounds)
-[141/152] the-tcpdump-group___tcpdump@ca336198e8bebccc18502de27672fdbd6eb34856 
-... unsolved (3 attempts, 2 rounds)
-[142/152] the-tcpdump-group___tcpdump@d10a0f980fe8f9407ab1ffbd612641433ebe175e 
-... error: Error code: 400 - {'error': {'message': "This model's maximum context 
-length is 15360 tokens. However, you requested 4096 output tokens and your 
-prompt contains at least 11265 input tokens, for a total of at least 15361 
-tokens. Please reduce the length of the input prompt or the number of requested 
-output tokens. (parameter=input_tokens, value=11265)", 'type': 
-'BadRequestError', 'param': 'input_tokens', 'code': 400}}
-[143/152] the-tcpdump-group___tcpdump@e6511cc1a950fe1566b2236329d6b4bd0826cc7a 
-... SOLVED (3 attempts, 2 rounds)
-[144/152] the-tcpdump-group___tcpdump@f76e7feb41a4327d2b0978449bbdafe98d4a3771 
-... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
-[145/152] uncrustify___uncrustify@059898e80d55dbe8d5c5eca6e6c1b10668553f92 ... SOLVED (3 attempts, 2 rounds)
-[146/152] uncrustify___uncrustify@dfe791684b24adc9eef81baef867f824866abdfa ... SOLVED (1 attempts, 1 rounds)
-[147/152] uriparser___uriparser@864f5d4c127def386dd5cc926ad96934b297f04e ... infra-blocked (baseline doesn't build)
-[148/152] uriparser___uriparser@cef25028de5ff872c2e1f0a6c562eb3ea9ecbce4 ... infra-blocked (baseline doesn't build)
-[149/152] webmproject___libvpx@3fbd1dca6a4d2dad332a2110d646e4ffef36d590 ... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
-[150/152] wez___atomicparsley@d72ccf06c98259d7261e0f3ac4fd8717778782c1 ... SOLVED (1 attempts, 1 rounds)
-[151/152] znc___znc@2390ad111bde16a78c98ac44572090b33c3bd2d8 ... infra-blocked (baseline doesn't build)
-[152/152] znc___znc@d229761821da38d984a9e4098ad96842490dc001 ... infra-blocked (baseline doesn't build)
-
-          run_20260709-084236 — pass@2           
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
-┃ metric                               ┃  value ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
-│ bugs                                 │    152 │
-│ infra-blocked (baseline won't build) │     29 │
-│ solved (pass@2, of buildable)        │ 19/123 │
-│ solve rate (buildable)               │  15.4% │
-└──────────────────────────────────────┴────────┘
-
-Results: 
-/home/ubuntu/min-xian/codebase/DEFECTS4C-CODE-REPAIR/agentic_apr/runs/run_202607
-09-084236/results.jsonl
+[31/152] PCRE2Project___pcre2@50a51cb7e67268e6ad417eb07c9de9bfea5cc55a ... 
