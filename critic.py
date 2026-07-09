@@ -18,6 +18,7 @@ import re
 from dataclasses import asdict, dataclass
 from typing import Optional
 
+import asan_parse
 import config
 import llm
 
@@ -54,9 +55,15 @@ class Critique:
             "single ```cpp code block and nothing else.")
 
 
+# Bump when the critic prompt changes so stale critiques aren't reused.
+_PROMPT_VERSION = "v2-diff+patchsan"
+
+
 def _key(bug_id: str, code: str, verdict: dict) -> str:
     tail = (verdict.get("log_tail") or "")[-500:]
-    return hashlib.md5(f"{bug_id}|{code}|{tail}".encode()).hexdigest()
+    san = "1" if verdict.get("patch_sanitizer") else "0"
+    return hashlib.md5(
+        f"{_PROMPT_VERSION}|{bug_id}|{code}|{tail}|{san}".encode()).hexdigest()
 
 
 def _load_cache() -> dict:
@@ -98,21 +105,36 @@ def _parse(resp: str, fallback_class: str) -> Critique:
                     raw=resp)
 
 
-def _prompt(buggy_context: str, failed_code: str, verdict: dict, evidence: dict) -> list:
+def _prompt(buggy_context: str, failed_code: str, verdict: dict, evidence: dict,
+            patch_diff: str = "") -> list:
     ev = evidence or {}
     diag = ""
     if ev.get("summary"):
-        diag = f"\nObserved failure: {ev.get('summary')}"
+        diag = f"\nObserved failure ({ev.get('summary')}) — this is the ORIGINAL bug:"
         for b in (ev.get("blocks") or []):
             diag += "\n" + b
+    # Full applied diff, not just the inserted line, so the critic sees context it
+    # displaced (bad edit location, broken surrounding statement, etc.).
+    diff_block = ""
+    if (patch_diff or "").strip():
+        d = patch_diff.strip()
+        diff_block = f"\n\nThe full diff that was applied and failed:\n```diff\n{d[:1500]}\n```"
+    # Sanitizer report of the FAILED PATCH — "why *your* change still crashes",
+    # only present when /fix builds with a sanitizer and the patch still triggers it.
+    patch_san = ""
+    if verdict.get("patch_sanitizer"):
+        patch_san = ("\n\nYour patched code STILL triggers the sanitizer (this is the "
+                     "patch's own failure, not the original bug's):\n"
+                     + asan_parse.to_prompt_block(verdict["patch_sanitizer"]))
     tail = (verdict.get("log_tail") or "").strip()
     lines = tail.splitlines()
     if len(lines) > 30:
         tail = "\n".join(lines[-30:])
     user = (
         f"Buggy function and infill location:\n```cpp\n{buggy_context.strip()}\n```\n\n"
-        f"The line the previous attempt inserted (which failed):\n```cpp\n{failed_code.strip()}\n```\n"
-        f"{diag}\n\n"
+        f"The line the previous attempt inserted (which failed):\n```cpp\n{failed_code.strip()}\n```"
+        f"{diff_block}\n"
+        f"{diag}{patch_san}\n\n"
         f"Test/build output (tail):\n```\n{tail}\n```\n\n"
         "Respond with a JSON object only, of the form:\n"
         '{"failure_class": "...", "root_cause": "one sentence", '
@@ -121,7 +143,8 @@ def _prompt(buggy_context: str, failed_code: str, verdict: dict, evidence: dict)
 
 
 def critique(bug_id: str, buggy_context: str, failed_code: str, verdict: dict,
-             evidence: Optional[dict] = None, *, model: str = config.OPENAI_MODEL,
+             evidence: Optional[dict] = None, *, patch_diff: str = "",
+             model: str = config.OPENAI_MODEL,
              seed: int = config.SEED, use_cache: bool = True) -> Critique:
     key = _key(bug_id, failed_code, verdict)
     if use_cache:
@@ -130,7 +153,7 @@ def critique(bug_id: str, buggy_context: str, failed_code: str, verdict: dict,
             return Critique(**cached)
     fallback_class = (evidence or {}).get("failure_class", "unknown")
     try:
-        resp = llm.generate(_prompt(buggy_context, failed_code, verdict, evidence),
+        resp = llm.generate(_prompt(buggy_context, failed_code, verdict, evidence, patch_diff),
                             k=1, temperature=0.0, seed=seed, model=model)["candidates"][0]
     except Exception as e:  # noqa: BLE001 — critic failure must not sink the run
         return Critique(fallback_class, f"critic call failed: {e}", "", "")

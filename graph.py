@@ -25,6 +25,7 @@ import llm
 import triage
 import tools
 import critic
+import asan_parse
 from agent_state import AgentState
 from artifacts import BugArtifacts
 from harness_client import HarnessClient, HarnessError
@@ -151,6 +152,7 @@ class RepairRunner:
 
         last_fail_verdict = None
         last_fail_code = ""
+        last_fail_diff = ""
         for cand_idx, response in enumerate(candidates):
             patch_path, patch_diff, verdict = self._verify_one(response)
             self._art.write_candidate(round_idx, cand_idx,
@@ -168,26 +170,28 @@ class RepairRunner:
                 return state
             last_fail_verdict = verdict
             last_fail_code = extract_fix_code(response)
+            last_fail_diff = patch_diff or ""
 
         # all candidates failed this round → build feedback for the next round
         state["solved"] = False
         if last_fail_verdict is None:
             state["feedback"] = None
         elif self.use_critic:
-            state["feedback"] = self._run_critic(last_fail_code, last_fail_verdict)
+            state["feedback"] = self._run_critic(last_fail_code, last_fail_verdict,
+                                                 last_fail_diff)
         else:
             state["feedback"] = _feedback_block(last_fail_verdict)
         state["round_idx"] = round_idx + 1
         return state
 
-    def _run_critic(self, failed_code: str, verdict: dict) -> str:
+    def _run_critic(self, failed_code: str, verdict: dict, failed_diff: str = "") -> str:
         """Phase 3: structured critique → feedback; also recorded on the round's
         last attempt for the trace/dashboard."""
         diagnosis = self._state.diagnosis or {}
         ev = dict(diagnosis.get("evidence") or {})
         ev["blocks"] = diagnosis.get("blocks") or []
         crit = critic.critique(self._bug_id, self._buggy_context, failed_code, verdict,
-                               ev, model=self.model, seed=self.seed)
+                               ev, patch_diff=failed_diff, model=self.model, seed=self.seed)
         if self._state.attempts:
             self._state.attempts[-1].critic_note = (
                 f"{crit.failure_class}: {crit.root_cause}\n"
@@ -223,12 +227,19 @@ class RepairRunner:
         # And fix_status can be stale ("success" left over) when the build failed
         # and the test never ran. So require rc==0 AND fix_status=="success".
         passed = (rc == 0) and fix_status.startswith("success")
+        # Sanitizer report of the FAILED PATCH itself: where /fix builds with a
+        # sanitizer (the vuln set does so natively), a patch that still triggers
+        # the fault leaves its trace in fix_log/fix_msg — "why *your* change still
+        # crashes", distinct from the original bug's trace. None when clean/absent.
+        fix_out = (final.get("fix_log", "") or "") + "\n" + (final.get("fix_msg", "") or "")
+        patch_sanitizer = None if passed else asan_parse.parse_log(fix_out)
         return patch_path, patch_diff, {
             "passed": passed,
             "return_code": rc,
             "fix_status": final.get("fix_status"),
             "status": final.get("status"),
             "log_tail": final.get("fix_log", ""),
+            "patch_sanitizer": patch_sanitizer,
             "error": final.get("error", ""),
             "timed_out": final.get("_timed_out", False),
         }

@@ -13,4 +13,46 @@ Artifacts:
 [6/152] CESNET___libyang@812a5bff4857a485db96fe7269af944d0bdb91b3 ... unsolved (3 attempts, 2 rounds)
 [7/152] CESNET___libyang@823fbe0f7a7b50b7c80cfd948eb3c189579126ab ... unsolved (3 attempts, 2 rounds)
 [8/152] CESNET___libyang@9cdb9e6f60d6bae42675bc3b46f5741e50b62e68 ... unsolved (3 attempts, 2 rounds)
-[9/152] CESNET___libyang@a353cce850560bea761d67a2fbcaf9cb271f586f ... 
+[9/152] CESNET___libyang@a353cce850560bea761d67a2fbcaf9cb271f586f ... unsolved (3 attempts, 2 rounds)
+[10/152] CESNET___libyang@b6ecaeaa0391745ec9054cc4351ac4049317576c ... unsolved (3 attempts, 2 rounds)
+[11/152] CESNET___libyang@cdcace7230352a25eb21a488e7f42d004b3de3e1 ... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
+[12/152] CESNET___libyang@ea0f96cf45deed39fb98b28f30d0acdc304db243 ... unsolved (3 attempts, 2 rounds)
+[13/152] CESNET___libyang@fff4dca0da454cdff4c8fab70b4a62c0674fb862 ... unsolved (3 attempts, 2 rounds)
+[14/152] CLIUtils___CLI11@020a21afc65fe843efca5b2f74e3d5b502425f76 ... unsolved (3 attempts, 2 rounds)
+[15/152] CLIUtils___CLI11@dcbcb4721dda5dab0a56d9faaaee50e6a30f7758 ... unsolved (3 attempts, 2 rounds)
+[16/152] CLIUtils___CLI11@de215ef978104a0e9efdc7b78a9d58cd529cf17a ... unsolved (3 attempts, 2 rounds)
+[17/152] ClusterLabs___libqb@1bbaa929b77113532785c408dd1b41cd0521ffc8 ... unsolved (3 attempts, 2 rounds)
+[18/152] DaveGamble___cJSON@be749d7efa7c9021da746e685bd6dec79f9dd99b ... unsolved (3 attempts, 2 rounds)
+[19/152] KhronosGroup___SPIRV-Tools@0391d0823ebfd7c37c07a54b8726cc417183a95f ...unsolved (3 attempts, 2 rounds)
+[20/152] KhronosGroup___SPIRV-Tools@0a43a84e02245cca40ce187d1e427a5d0b4f3d13 ...error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
+[21/152] KhronosGroup___SPIRV-Tools@0a5d99d02cb8c0edd41c7a9d4f309c0974d076d0 ...unsolved (3 attempts, 2 rounds)
+[22/152] KhronosGroup___SPIRV-Tools@0ad83f9139daf70a791560f5c72f94b0be5b8390 ...unsolved (3 attempts, 2 rounds)
+[23/152] KhronosGroup___SPIRV-Tools@286b3095dd187da747f85baf9ce3120580565df0 ...unsolved (3 attempts, 2 rounds)
+[24/152] KhronosGroup___SPIRV-Tools@4fa1a6f9b497193e54a814112f17ab3c2cf58053 ...unsolved (3 attempts, 2 rounds)
+[25/152] KhronosGroup___SPIRV-Tools@54385458ca2f7a7b06699e441822753dbc2d018d ...unsolved (3 attempts, 2 rounds)
+[26/152] KhronosGroup___SPIRV-Tools@6a9be627c760cf1efa43d155d4e6ee5e801deba3 ...unsolved (3 attempts, 2 rounds)
+[27/152] KhronosGroup___SPIRV-Tools@948577c5df3a6f0d337ab417b26edcc344eb65e2 ...unsolved (3 attempts, 2 rounds)
+[28/152] KhronosGroup___SPIRV-Tools@ab3cdcaef56e9311f299eebfd044f9646100c9dc ...Traceback (most recent call last):
+  File "/home/ubuntu/min-xian/codebase/DEFECTS4C-CODE-REPAIR/agentic_apr/run.py", line 156, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/ubuntu/min-xian/codebase/DEFECTS4C-CODE-REPAIR/agentic_apr/run.py", line 118, in main
+    state = runner.run(defect, art)
+            ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/min-xian/codebase/DEFECTS4C-CODE-REPAIR/agentic_apr/graph.py", line 329, in run
+    if m["role"] == "user"), "")
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/min-xian/codebase/DEFECTS4C-CODE-REPAIR/agentic_apr/graph.py", line 251, in _diagnose
+    """observe→triage→seed tools, then let the LLM request more (hybrid).
+              ^^^^^^^^^^^
+  File "/home/ubuntu/min-xian/codebase/DEFECTS4C-CODE-REPAIR/agentic_apr/tools.py", line 169, in seed
+    results.append(tool.run(ctx))
+                   ^^^^^^^^^^^^^
+  File "/home/ubuntu/min-xian/codebase/DEFECTS4C-CODE-REPAIR/agentic_apr/tools.py", line 73, in run
+    ctx.client.wait_for_reproduce(h)
+  File "/home/ubuntu/min-xian/codebase/DEFECTS4C-CODE-REPAIR/agentic_apr/harness_client.py", line 107, in wait_for_reproduce
+    return self.wait_for_fix(handle, poll_interval=poll_interval, max_wait=max_wait)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/min-xian/codebase/DEFECTS4C-CODE-REPAIR/agentic_apr/harness_client.py", line 168, in wait_for_fix
+    time.sleep(poll_interval)
+KeyboardInterrupt
