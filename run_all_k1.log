@@ -1,88 +1,16 @@
 nohup: ignoring input
-Run run_20260709-202420  model=codellama/CodeLlama-7b-Instruct-hf (bfloat16)  
+Run run_20260709-215340  model=codellama/CodeLlama-7b-Instruct-hf (bfloat16)  
 k=2  repair_rounds=1  bugs=152
 Artifacts: 
 /home/ubuntu/min-xian/codebase/DEFECTS4C-CODE-REPAIR/agentic_apr/runs/run_202607
-09-202420
+09-215340
 
-[1/152] CESNET___libyang@140ede9c075c604632a87ee3bf0e881fb485d0e7 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[2/152] CESNET___libyang@24bd22f5e40f37fb6ae796bb8eebc9de58bae00e ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
+[1/152] CESNET___libyang@140ede9c075c604632a87ee3bf0e881fb485d0e7 ... unsolved (3 attempts, 2 rounds)
+[2/152] CESNET___libyang@24bd22f5e40f37fb6ae796bb8eebc9de58bae00e ... unsolved (3 attempts, 2 rounds)
 [3/152] CESNET___libyang@350a6bf69e03d19fe996cba992b49556ae2ce8ab ... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
-[4/152] CESNET___libyang@509d721c2b61088c1e491c330c48b0cc01dc191e ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[5/152] CESNET___libyang@7c7783df75b9a5dfc6cc22c70b9467d47aa913d2 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[6/152] CESNET___libyang@812a5bff4857a485db96fe7269af944d0bdb91b3 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[7/152] CESNET___libyang@823fbe0f7a7b50b7c80cfd948eb3c189579126ab ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[8/152] CESNET___libyang@9cdb9e6f60d6bae42675bc3b46f5741e50b62e68 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[9/152] CESNET___libyang@a353cce850560bea761d67a2fbcaf9cb271f586f ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[10/152] CESNET___libyang@b6ecaeaa0391745ec9054cc4351ac4049317576c ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[11/152] CESNET___libyang@cdcace7230352a25eb21a488e7f42d004b3de3e1 ... error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
-[12/152] CESNET___libyang@ea0f96cf45deed39fb98b28f30d0acdc304db243 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[13/152] CESNET___libyang@fff4dca0da454cdff4c8fab70b4a62c0674fb862 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[14/152] CLIUtils___CLI11@020a21afc65fe843efca5b2f74e3d5b502425f76 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[15/152] CLIUtils___CLI11@dcbcb4721dda5dab0a56d9faaaee50e6a30f7758 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[16/152] CLIUtils___CLI11@de215ef978104a0e9efdc7b78a9d58cd529cf17a ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[17/152] ClusterLabs___libqb@1bbaa929b77113532785c408dd1b41cd0521ffc8 ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[18/152] DaveGamble___cJSON@be749d7efa7c9021da746e685bd6dec79f9dd99b ... error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[19/152] KhronosGroup___SPIRV-Tools@0391d0823ebfd7c37c07a54b8726cc417183a95f ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[20/152] KhronosGroup___SPIRV-Tools@0a43a84e02245cca40ce187d1e427a5d0b4f3d13 ...error: 400 Client Error: Bad Request for url: http://127.0.0.1:11111/build_patch
-[21/152] KhronosGroup___SPIRV-Tools@0a5d99d02cb8c0edd41c7a9d4f309c0974d076d0 ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[22/152] KhronosGroup___SPIRV-Tools@0ad83f9139daf70a791560f5c72f94b0be5b8390 ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[23/152] KhronosGroup___SPIRV-Tools@286b3095dd187da747f85baf9ce3120580565df0 ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[24/152] KhronosGroup___SPIRV-Tools@4fa1a6f9b497193e54a814112f17ab3c2cf58053 ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[25/152] KhronosGroup___SPIRV-Tools@54385458ca2f7a7b06699e441822753dbc2d018d ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[26/152] KhronosGroup___SPIRV-Tools@6a9be627c760cf1efa43d155d4e6ee5e801deba3 ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[27/152] KhronosGroup___SPIRV-Tools@948577c5df3a6f0d337ab417b26edcc344eb65e2 ...SOLVED (2 attempts, 1 rounds)
-[28/152] KhronosGroup___SPIRV-Tools@ab3cdcaef56e9311f299eebfd044f9646100c9dc ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[29/152] KhronosGroup___SPIRV-Tools@d5a3bfcf2ffd154a244e7ffae54dd1766d98efa4 ...error: Error code: 400 - {'error': {'message': 'Conversation roles must 
-alternate user/assistant/user/assistant/...', 'type': 'BadRequestError', 
-'param': None, 'code': 400}}
-[30/152] OpenIDC___cjose@7325e9a5e71e2fc0e350487ecac7d84acdf0ed5e ... infra-blocked (baseline doesn't build)
-[31/152] PCRE2Project___pcre2@50a51cb7e67268e6ad417eb07c9de9bfea5cc55a ... 
+[4/152] CESNET___libyang@509d721c2b61088c1e491c330c48b0cc01dc191e ... unsolved (3 attempts, 2 rounds)
+[5/152] CESNET___libyang@7c7783df75b9a5dfc6cc22c70b9467d47aa913d2 ... unsolved (3 attempts, 2 rounds)
+[6/152] CESNET___libyang@812a5bff4857a485db96fe7269af944d0bdb91b3 ... unsolved (3 attempts, 2 rounds)
+[7/152] CESNET___libyang@823fbe0f7a7b50b7c80cfd948eb3c189579126ab ... unsolved (3 attempts, 2 rounds)
+[8/152] CESNET___libyang@9cdb9e6f60d6bae42675bc3b46f5741e50b62e68 ... unsolved (3 attempts, 2 rounds)
+[9/152] CESNET___libyang@a353cce850560bea761d67a2fbcaf9cb271f586f ... 

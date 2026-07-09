@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 from typing import Optional, TypedDict
 
+import requests
 from langgraph.graph import StateGraph, END
 
 import config
@@ -196,9 +197,14 @@ class RepairRunner:
     # ── one candidate: build_patch → fix → status ─────────────────────────────
     def _verify_one(self, response: str):
         code = extract_fix_code(response)     # last fenced block = the corrected line
+        # No usable code (model rambled / empty block) — build_patch would 400.
+        if not code.strip() or code.strip().strip("`").strip().rstrip("cpp").strip() == "":
+            return None, None, {"passed": False, "build_ok": False,
+                                "error": "no code extracted from model response",
+                                "return_code": None}
         try:
             patch = self.client.build_patch(self._bug_id, code, method=self.patch_method)
-        except HarnessError as e:
+        except (HarnessError, requests.RequestException) as e:
             return None, None, {"passed": False, "build_ok": False,
                                 "error": f"build_patch: {e}", "return_code": None}
         patch_path = patch.get("fix_p")
@@ -206,7 +212,7 @@ class RepairRunner:
         try:
             handle = self.client.fix(self._bug_id, patch_path)
             final = self.client.wait_for_fix(handle)
-        except HarnessError as e:
+        except (HarnessError, requests.RequestException) as e:
             return patch_path, patch_diff, {"passed": False, "build_ok": True,
                                             "error": f"fix: {e}", "return_code": None}
         rc = final.get("return_code")
