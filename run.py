@@ -66,6 +66,7 @@ def main() -> int:
                    help="Phase 3: use raw log-tail feedback instead of the Critic on all-k-fail")
     args = p.parse_args()
     model = args.model or llm.served_model()   # auto-sync to the running endpoint
+    precision = llm.served_precision(model)    # bf16/fp16 — recorded for reproducibility
     diagnose = not args.no_diagnose
     use_critic = not args.no_critic
     if args.no_sanitizer_rebuild:
@@ -83,7 +84,7 @@ def main() -> int:
 
     run_id = dt.datetime.now().strftime("run_%Y%m%d-%H%M%S")
     meta = {
-        "run_id": run_id, "model": model, "k": args.k,
+        "run_id": run_id, "model": model, "precision": precision, "k": args.k,
         "repair_rounds": args.repair_rounds, "seed": args.seed,
         "patch_method": args.patch_method, "diagnose": diagnose,
         "use_critic": use_critic,
@@ -91,7 +92,7 @@ def main() -> int:
         "base_url": config.DEFECTS4C_BASE_URL, "llm_endpoint": config.OPENAI_BASE_URL,
     }
     run_art = RunArtifacts(config.RUNS_DIR, run_id, meta)
-    console.print(f"[bold]Run {run_id}[/bold]  model={model}  k={args.k}  "
+    console.print(f"[bold]Run {run_id}[/bold]  model={model} ({precision})  k={args.k}  "
                   f"repair_rounds={args.repair_rounds}  bugs={len(bugs)}")
     console.print(f"Artifacts: {run_art.dir}\n")
 

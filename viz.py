@@ -352,10 +352,18 @@ def render_dashboard(meta: dict, rows: list, traces: dict, single: bool = False)
              "<th class='num'>rounds</th></tr></thead><tbody>"
              + "".join(trows) + "</tbody></table>")
 
+    prec = meta.get("precision")
+    if not prec:                       # older runs: compute from the model's config
+        try:
+            import llm
+            prec = llm.served_precision(meta.get("model"))
+        except Exception:  # noqa: BLE001
+            prec = "unknown"
     head = (f"<h1>Repair run · {esc(meta.get('run_id',''))}</h1>"
             f"<div class='sub'>model <span class='chip'>{esc(meta.get('model'))}</span> "
+            f"precision <span class='chip'>{esc(prec)}</span> "
             f"k={esc(meta.get('k'))} · repair_rounds={esc(meta.get('repair_rounds'))} · "
-            f"diagnose={esc(meta.get('diagnose'))}</div>")
+            f"diagnose={esc(meta.get('diagnose'))} · critic={esc(meta.get('use_critic'))}</div>")
     body = head + tiles + "".join(proj_html) + table
     if single:
         return body

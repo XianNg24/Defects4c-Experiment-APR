@@ -32,6 +32,26 @@ def served_model() -> str:
         return config.OPENAI_MODEL
 
 
+def served_precision(model: str = None) -> str:
+    """The serving float precision, for reproducibility. If APR_DTYPE forces one,
+    that; otherwise the served model's native config torch_dtype (what vLLM 'auto'
+    loads). So two runs with the same value are numerically comparable."""
+    if config.LLM_DTYPE and config.LLM_DTYPE != "auto":
+        return config.LLM_DTYPE
+    import glob
+    import json
+    import os
+    model = model or served_model()
+    pat = os.path.expanduser(
+        f"~/.cache/huggingface/hub/models--{model.replace('/', '--')}/snapshots/*/config.json")
+    for cfg in glob.glob(pat):
+        try:
+            return json.load(open(cfg)).get("torch_dtype", "unknown")
+        except Exception:  # noqa: BLE001
+            pass
+    return "unknown"
+
+
 def generate(messages: list[dict], *, k: int = 1,
              temperature: float = 0.7, seed: int = config.SEED,
              model: str = config.OPENAI_MODEL,

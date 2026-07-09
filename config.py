@@ -18,6 +18,9 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "EMPTY")             # vLLM ig
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8888/v1/")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "deepseek-ai/deepseek-coder-6.7b-instruct")
 LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "4096"))
+# Serving precision. "auto" = the model's native config torch_dtype (what vLLM
+# loads by default). Set APR_DTYPE=bfloat16/float16 on BOTH serve + run to force one.
+LLM_DTYPE = os.environ.get("APR_DTYPE", "auto")
 
 # ── Agent loop budgets (see task.md §3 / §5) ──────────────────────────────────
 K_CANDIDATES = int(os.environ.get("APR_K", "1"))          # candidates per round

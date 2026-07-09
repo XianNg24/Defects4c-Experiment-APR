@@ -26,6 +26,7 @@ exec python -m vllm.entrypoints.openai.api_server \
     --served-model-name "$MODEL" \
     "${TOKENIZER_ARG[@]}" \
     --port "${APR_LLM_PORT:-8888}" \
+    --dtype "${APR_DTYPE:-auto}" \
     --max-model-len "${APR_MAX_MODEL_LEN:-15360}" \
     --gpu-memory-utilization "${APR_GPU_UTIL:-0.95}" \
     --enforce-eager --safetensors-load-strategy lazy
