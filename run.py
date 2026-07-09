@@ -20,6 +20,7 @@ from rich.console import Console
 from rich.table import Table
 
 import config
+import llm
 from artifacts import RunArtifacts
 from graph import RepairRunner
 from harness_client import HarnessClient
@@ -49,7 +50,8 @@ def main() -> int:
     p.add_argument("--limit", type=int, help="max number of bugs")
     p.add_argument("--k", type=int, default=config.K_CANDIDATES)
     p.add_argument("--repair-rounds", type=int, default=config.REPAIR_ROUNDS)
-    p.add_argument("--model", default=config.OPENAI_MODEL)
+    p.add_argument("--model", default=None,
+                   help="model id to request (default: whatever the endpoint is serving)")
     p.add_argument("--seed", type=int, default=config.SEED)
     p.add_argument("--patch-method", default="direct",
                    help="build_patch extraction: direct|diff|inline|auto")
@@ -63,6 +65,7 @@ def main() -> int:
     p.add_argument("--no-critic", action="store_true",
                    help="Phase 3: use raw log-tail feedback instead of the Critic on all-k-fail")
     args = p.parse_args()
+    model = args.model or llm.served_model()   # auto-sync to the running endpoint
     diagnose = not args.no_diagnose
     use_critic = not args.no_critic
     if args.no_sanitizer_rebuild:
@@ -80,7 +83,7 @@ def main() -> int:
 
     run_id = dt.datetime.now().strftime("run_%Y%m%d-%H%M%S")
     meta = {
-        "run_id": run_id, "model": args.model, "k": args.k,
+        "run_id": run_id, "model": model, "k": args.k,
         "repair_rounds": args.repair_rounds, "seed": args.seed,
         "patch_method": args.patch_method, "diagnose": diagnose,
         "use_critic": use_critic,
@@ -88,12 +91,12 @@ def main() -> int:
         "base_url": config.DEFECTS4C_BASE_URL, "llm_endpoint": config.OPENAI_BASE_URL,
     }
     run_art = RunArtifacts(config.RUNS_DIR, run_id, meta)
-    console.print(f"[bold]Run {run_id}[/bold]  model={args.model}  k={args.k}  "
+    console.print(f"[bold]Run {run_id}[/bold]  model={model}  k={args.k}  "
                   f"repair_rounds={args.repair_rounds}  bugs={len(bugs)}")
     console.print(f"Artifacts: {run_art.dir}\n")
 
     runner = RepairRunner(client, k=args.k, repair_rounds=args.repair_rounds,
-                          model=args.model, seed=args.seed,
+                          model=model, seed=args.seed,
                           patch_method=args.patch_method, diagnose=diagnose,
                           max_tool_requests=args.max_tool_requests, use_critic=use_critic)
 

@@ -23,6 +23,15 @@ def _client():
     return OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL)
 
 
+def served_model() -> str:
+    """The model id the endpoint is actually serving, so the agent auto-syncs to
+    whatever vLLM was launched with. Falls back to config.OPENAI_MODEL."""
+    try:
+        return _client().models.list().data[0].id
+    except Exception:  # noqa: BLE001 — endpoint down / unexpected shape
+        return config.OPENAI_MODEL
+
+
 def generate(messages: list[dict], *, k: int = 1,
              temperature: float = 0.7, seed: int = config.SEED,
              model: str = config.OPENAI_MODEL,
