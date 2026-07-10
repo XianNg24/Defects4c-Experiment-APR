@@ -43,6 +43,20 @@ def _extract_diff(patch_data: dict) -> Optional[str]:
     return patch_data.get("patch_content") or patch_data.get("content")
 
 
+def _as_text(v) -> str:
+    """Coerce a harness field to text. The harness json.loads-es any redis field
+    beginning with '{'/'[', so log strings that are valid JSON come back as
+    dict/list — round-trip those back to their JSON text; keep real strings as-is."""
+    if isinstance(v, str):
+        return v
+    if v is None:
+        return ""
+    if isinstance(v, (dict, list)):
+        import json
+        return json.dumps(v)
+    return str(v)
+
+
 _CODE_BLOCK = re.compile(r"```(?:[a-zA-Z0-9+]*)\s*\n?(.*?)```", re.S)
 
 
@@ -227,20 +241,25 @@ class RepairRunner:
         # And fix_status can be stale ("success" left over) when the build failed
         # and the test never ran. So require rc==0 AND fix_status=="success".
         passed = (rc == 0) and fix_status.startswith("success")
+        # fix_log/fix_msg are meant to be strings, but the harness deserializes any
+        # redis field that starts with '{' or '[' via json.loads — so a build log
+        # that is valid JSON (e.g. clang JSON diagnostics) comes back as a dict/list.
+        # Coerce to text before we concatenate or .strip() it downstream.
+        fix_log = _as_text(final.get("fix_log", ""))
+        fix_msg = _as_text(final.get("fix_msg", ""))
         # Sanitizer report of the FAILED PATCH itself: where /fix builds with a
         # sanitizer (the vuln set does so natively), a patch that still triggers
         # the fault leaves its trace in fix_log/fix_msg — "why *your* change still
         # crashes", distinct from the original bug's trace. None when clean/absent.
-        fix_out = (final.get("fix_log", "") or "") + "\n" + (final.get("fix_msg", "") or "")
-        patch_sanitizer = None if passed else asan_parse.parse_log(fix_out)
+        patch_sanitizer = None if passed else asan_parse.parse_log(fix_log + "\n" + fix_msg)
         return patch_path, patch_diff, {
             "passed": passed,
             "return_code": rc,
             "fix_status": final.get("fix_status"),
             "status": final.get("status"),
-            "log_tail": final.get("fix_log", ""),
+            "log_tail": fix_log,
             "patch_sanitizer": patch_sanitizer,
-            "error": final.get("error", ""),
+            "error": _as_text(final.get("error", "")),
             "timed_out": final.get("_timed_out", False),
         }
 
