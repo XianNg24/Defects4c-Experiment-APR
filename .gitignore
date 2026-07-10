@@ -21,3 +21,8 @@ deepseek_tokenizer_fixed/
 # OS / editor
 .DS_Store
 *.swp
+
+# runtime logs / pointers (vLLM + run output)
+logs/
+.vllm_current_log
+.run_current_log
