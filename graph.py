@@ -26,6 +26,7 @@ import triage
 import tools
 import critic
 import asan_parse
+import source_context
 from agent_state import AgentState
 from artifacts import BugArtifacts
 from harness_client import HarnessClient, HarnessError
@@ -75,15 +76,14 @@ def extract_fix_code(response: str) -> str:
     return "```cpp\n" + blocks[-1].strip("\n") + "\n```"
 
 
-def _inject_diagnosis(messages: list, block: str) -> list:
-    """Fold the diagnosis bundle into the last user message."""
+def _inject_block(messages: list, block: str, trailer: str = "") -> list:
+    """Fold an extra context/diagnosis block into the last user message."""
     if not block:
         return messages
     out = [dict(m) for m in messages]
     for m in reversed(out):
         if m["role"] == "user":
-            m["content"] = m["content"].rstrip() + "\n\n" + block + \
-                "\nUse this diagnosis to locate and fix the defect."
+            m["content"] = m["content"].rstrip() + "\n\n" + block + trailer
             return out
     out.append({"role": "user", "content": block})
     return out
@@ -93,15 +93,23 @@ _TOOL_REQUEST = re.compile(r"REQUEST_TOOL:\s*([a-z_]+)", re.I)
 
 
 def _feedback_block(verdict: dict) -> str:
-    """Turn a failing verdict into a compact repair-prompt feedback section."""
-    tail = (verdict.get("log_tail") or "").strip()
-    # Keep the last ~40 lines — enough to show the failing test / compile error.
+    """Turn a failing verdict into a compact repair-prompt feedback section.
+
+    When the patch failed to *compile*, headline the exact compiler diagnostics
+    (Recommendation B) rather than a raw ninja dump — the errors are what the model
+    must fix, and the harness flattens the log so they're otherwise buried."""
+    tail = _as_text(verdict.get("log_tail")).strip()
+    cerrs = triage.compile_errors(tail)
+    if cerrs:
+        return (
+            "Your patch FAILED TO COMPILE. Fix exactly these compiler errors, "
+            "keeping the rest of your change:\n- " + "\n- ".join(cerrs) +
+            "\nReturn only the corrected code in a single ```cpp ... ``` block.")
     lines = tail.splitlines()
     if len(lines) > 40:
         tail = "\n".join(lines[-40:])
-    reason = "the patch did not compile or the test suite still failed"
     return (
-        "Your previous fix was applied but " + reason + ".\n"
+        "Your previous fix was applied but the test suite still failed.\n"
         "Test / build output (tail):\n"
         "```\n" + tail + "\n```\n"
         "Produce a corrected full function that makes the tests pass. "
@@ -296,7 +304,8 @@ class RepairRunner:
         art.write_diagnosis(record, raw_log=log)
         if blocks:
             header = f"Diagnosis of the observed failure ({evidence['summary']}):"
-            messages = _inject_diagnosis(messages, header + "\n\n" + "\n\n".join(blocks))
+            messages = _inject_block(messages, header + "\n\n" + "\n\n".join(blocks),
+                                     trailer="\nUse this diagnosis to locate and fix the defect.")
         return messages, record
 
     def _llm_request_tools(self, ctx, base_messages, seeded) -> list:
@@ -361,6 +370,12 @@ class RepairRunner:
                                     if m["role"] == "user"), "")
 
         messages = list(pd["prompt"])
+        # Recommendation A: the base prompt shows only the buggy function, so the
+        # model references symbols it can't see (undeclared-identifier/no-member is the
+        # biggest compile-failure cause). Inject the declarations the fix likely needs.
+        digest = source_context.symbol_digest(bug_id, self._buggy_context)
+        if digest:
+            messages = _inject_block(messages, digest)
         # Phase 2 gather_context: observe the real failure, triage it, and apply
         # whichever diagnostic tools fit — no dataset label, no preset ASAN mode.
         if self.diagnose:

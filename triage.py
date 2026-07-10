@@ -17,6 +17,7 @@ Classes (most to least specific):
 """
 from __future__ import annotations
 
+import os
 import re
 from typing import Optional
 
@@ -111,6 +112,33 @@ def triage(log_text: str) -> dict:
 
     return {"failure_class": "unknown", "summary": "failure could not be classified",
             "log_excerpt": _tail(log_text)}
+
+
+# The harness flattens build logs to a single line (no newlines), so we can't anchor
+# on line starts. Match 'file:line[:col]: error: msg', bounding the message at the
+# next diagnostic location, a caret marker, or end of string.
+_CC_DIAG = re.compile(
+    r"([\w./+\-]+):(\d+):(?:(\d+):)?\s*(?:fatal error|error):\s*(.{1,160}?)"
+    r"(?=\s+[\w./+\-]+:\d+:\d+:|\s+\^|$)")
+
+
+def compile_errors(log_text: str, *, limit: int = 8) -> list[str]:
+    """Extract clang/gcc diagnostics ('file:line:col: error: msg') from a build log,
+    so repair feedback can headline exactly what to fix instead of a raw ninja dump.
+    Deduped, order-preserving, capped."""
+    out, seen = [], set()
+    for m in _CC_DIAG.finditer(log_text or ""):
+        f, line, col, msg = m.group(1), m.group(2), m.group(3), m.group(4).strip()
+        if not msg or "errors generated" in msg or f in ("ld", "clang", "gcc", "cc1", "cc1plus"):
+            continue                      # linker/driver summary noise, not a fix site
+        loc = f"{os.path.basename(f)}:{line}" + (f":{col}" if col else "")
+        line_s = f"{loc}: {msg}"
+        if line_s not in seen:
+            seen.add(line_s)
+            out.append(line_s)
+        if len(out) >= limit:
+            break
+    return out
 
 
 if __name__ == "__main__":

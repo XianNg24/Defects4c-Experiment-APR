@@ -21,6 +21,7 @@ from typing import Optional
 import asan_parse
 import config
 import llm
+import triage
 
 CACHE_PATH = os.path.join(config.BASE_DIR, ".critic_cache.jsonl")
 
@@ -56,7 +57,7 @@ class Critique:
 
 
 # Bump when the critic prompt changes so stale critiques aren't reused.
-_PROMPT_VERSION = "v2-diff+patchsan"
+_PROMPT_VERSION = "v3-diff+patchsan+compile"
 
 
 def _key(bug_id: str, code: str, verdict: dict) -> str:
@@ -126,14 +127,23 @@ def _prompt(buggy_context: str, failed_code: str, verdict: dict, evidence: dict,
         patch_san = ("\n\nYour patched code STILL triggers the sanitizer (this is the "
                      "patch's own failure, not the original bug's):\n"
                      + asan_parse.to_prompt_block(verdict["patch_sanitizer"]))
-    tail = (verdict.get("log_tail") or "").strip()
+    tail = verdict.get("log_tail") or ""
+    tail = (tail if isinstance(tail, str) else str(tail)).strip()
+    # Recommendation B: if the patch failed to compile, headline the exact diagnostics
+    # (the harness flattens the log, so they're otherwise buried in the tail).
+    cerrs = triage.compile_errors(tail)
+    compile_block = ""
+    if cerrs:
+        compile_block = ("\n\nYour patch FAILED TO COMPILE — fix exactly these errors:\n- "
+                         + "\n- ".join(cerrs))
     lines = tail.splitlines()
     if len(lines) > 30:
         tail = "\n".join(lines[-30:])
     user = (
         f"Buggy function and infill location:\n```cpp\n{buggy_context.strip()}\n```\n\n"
         f"The line the previous attempt inserted (which failed):\n```cpp\n{failed_code.strip()}\n```"
-        f"{diff_block}\n"
+        f"{diff_block}"
+        f"{compile_block}\n"
         f"{diag}{patch_san}\n\n"
         f"Test/build output (tail):\n```\n{tail}\n```\n\n"
         "Respond with a JSON object only, of the form:\n"
