@@ -194,10 +194,16 @@ class RepairRunner:
             last_fail_code = extract_fix_code(response)
             last_fail_diff = patch_diff or ""
 
-        # all candidates failed this round → build feedback for the next round
+        # all candidates failed this round → build feedback for the next round.
+        # A compile failure is *mechanical*: route it to the direct "fix these exact
+        # errors" feedback (Recommendation B), not the semantic critic — the critic is
+        # for compiled-but-wrong fixes and otherwise gets distracted by the original
+        # bug's diagnosis while the patch doesn't even build.
         state["solved"] = False
         if last_fail_verdict is None:
             state["feedback"] = None
+        elif triage.compile_errors(_as_text(last_fail_verdict.get("log_tail"))):
+            state["feedback"] = _feedback_block(last_fail_verdict)
         elif self.use_critic:
             state["feedback"] = self._run_critic(last_fail_code, last_fail_verdict,
                                                  last_fail_diff)
