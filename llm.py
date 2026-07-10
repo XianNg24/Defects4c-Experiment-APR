@@ -76,6 +76,46 @@ def _merge_consecutive(messages: list[dict]) -> list[dict]:
     return out
 
 
+# vLLM reports context overflow in two formats; we parse the window size and,
+# when available, the message-token count:
+#   "maximum context length is 15360 tokens ... (11304 in the messages, 4096 ...)"
+#   "maximum context length is 15360 tokens ... prompt contains at least 11265 input"
+import re as _re
+_MIN_COMPLETION = 256          # never shrink the answer budget below this
+
+
+def _parse_ctx_error(text: str):
+    """(ctx, msg_tokens|None, exact) from a vLLM context-length 400, or None if not
+    one. The "N in the messages" form is exact; "at least N input tokens" is a lower
+    bound (it rises as we shrink the completion), so completion-shrink can't use it."""
+    mc = _re.search(r"maximum context length is (\d+)", text)
+    if not mc:
+        return None
+    exact = _re.search(r"\((\d+) in the messages", text)
+    if exact:
+        return int(mc.group(1)), int(exact.group(1)), True
+    lb = _re.search(r"prompt contains at least (\d+) input tokens", text)
+    return int(mc.group(1)), (int(lb.group(1)) if lb else None), False
+
+
+def _truncate_to_chars(messages: list[dict], target_total_chars: int) -> list[dict]:
+    """Shrink the largest message so the messages total ≤ target_total_chars, keeping
+    its head (function signature) and tail (the infill point + instructions). Returns
+    the input unchanged if it's already small enough or can't be reduced."""
+    out = [dict(m) for m in messages]
+    total = sum(len(m["content"]) for m in out)
+    if total <= target_total_chars:
+        return out
+    big = max(out, key=lambda m: len(m["content"]))
+    c = big["content"]
+    keep = len(c) - (total - target_total_chars)
+    if keep < len(c) and keep > 0:
+        big["content"] = (c[: keep * 6 // 10]
+                          + "\n\n... [context truncated to fit the model window] ...\n\n"
+                          + c[-keep * 4 // 10:])
+    return out
+
+
 def generate(messages: list[dict], *, k: int = 1,
              temperature: float = 0.7, seed: int = config.SEED,
              model: str = config.OPENAI_MODEL,
@@ -84,30 +124,66 @@ def generate(messages: list[dict], *, k: int = 1,
 
     k candidates come back via `n=k`. Every candidate's raw text is returned;
     patch extraction happens downstream (build_patch handles code blocks/diffs).
+
+    On a context-length 400 the request is re-fit to the model window (shrink the
+    completion budget, then truncate the prompt if still too long) and retried,
+    rather than failing the bug.
     """
     # A wedged/dead server shows up as a read timeout OR a connection error (refused,
     # reset, accept-backlog full). Both mean "endpoint down". APIStatusError (400/404)
     # does not — that's a real problem with this one request, so it stays per-bug.
-    from openai import APIConnectionError, APITimeoutError
+    from openai import APIConnectionError, APITimeoutError, BadRequestError
     global _consecutive_failures
-    try:
-        resp = _client().chat.completions.create(
-            model=model,
-            messages=_merge_consecutive(messages),
-            temperature=temperature,
-            max_tokens=max_tokens,
-            n=k,
-            seed=seed,
-        )
-    except (APITimeoutError, APIConnectionError) as e:
-        _consecutive_failures += 1
-        if _consecutive_failures >= config.LLM_MAX_CONSECUTIVE_TIMEOUTS:
-            raise LLMUnavailable(
-                f"{_consecutive_failures} consecutive transport failures at "
-                f"{config.OPENAI_BASE_URL} (timeout={config.LLM_TIMEOUT:.0f}s): "
-                f"{type(e).__name__} — the endpoint looks wedged or down. "
-                "Check the vLLM log; restart it before re-running.") from None
-        raise
+    msgs = _merge_consecutive(messages)
+    cur_max = max_tokens
+    for _ in range(8):
+        try:
+            resp = _client().chat.completions.create(
+                model=model,
+                messages=msgs,
+                temperature=temperature,
+                max_tokens=cur_max,
+                n=k,
+                seed=seed,
+            )
+        except (APITimeoutError, APIConnectionError) as e:
+            _consecutive_failures += 1
+            if _consecutive_failures >= config.LLM_MAX_CONSECUTIVE_TIMEOUTS:
+                raise LLMUnavailable(
+                    f"{_consecutive_failures} consecutive transport failures at "
+                    f"{config.OPENAI_BASE_URL} (timeout={config.LLM_TIMEOUT:.0f}s): "
+                    f"{type(e).__name__} — the endpoint looks wedged or down. "
+                    "Check the vLLM log; restart it before re-running.") from None
+            raise
+        except BadRequestError as e:
+            parsed = _parse_ctx_error(str(e))
+            if not parsed:
+                raise                       # a different 400 — real per-request problem
+            _consecutive_failures = 0       # server answered, so it's alive
+            ctx, msg_tokens, exact = parsed
+            # Escalate cheapest-first: (1) with an exact message-token count, shrink the
+            # completion budget to the exact room the prompt leaves — the prompt is
+            # essential, the answer is a few lines; (2) else drop the completion to its
+            # floor; (3) if the prompt itself still won't fit, truncate it and retry.
+            if exact and ctx - msg_tokens - 32 >= _MIN_COMPLETION \
+                    and cur_max > ctx - msg_tokens - 32:
+                cur_max = ctx - msg_tokens - 32
+            elif cur_max > _MIN_COMPLETION:
+                cur_max = _MIN_COMPLETION
+            else:
+                # Prompt itself won't fit even with a floor completion. vLLM only
+                # reports a capped lower bound here, so we can't compute an exact
+                # char target — cut the largest message by a fixed fraction each pass
+                # until it fits; raise if it can't shrink further.
+                cur_total = sum(len(m["content"]) for m in msgs)
+                new = _truncate_to_chars(msgs, int(cur_total * 0.55))
+                if sum(len(m["content"]) for m in new) >= cur_total:
+                    raise
+                msgs = new
+            continue
+        break
+    else:
+        raise RuntimeError("context-fit retries exhausted")
     _consecutive_failures = 0
     candidates = [c.message.content or "" for c in resp.choices]
     usage = getattr(resp, "usage", None)
