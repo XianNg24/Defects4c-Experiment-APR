@@ -116,6 +116,13 @@ def main() -> int:
         art.write_defect(defect)
         try:
             state = runner.run(defect, art)
+        except llm.LLMUnavailable as e:
+            # A wedged endpoint is not a per-bug failure: continuing would mark every
+            # remaining bug 'error' and invalidate the run. Stop with results so far.
+            console.print(f"\n[bold red]ABORT: {e}[/bold red]")
+            console.print(f"[yellow]Stopped at [{i}/{len(bugs)}]; "
+                          f"{i - 1} bugs completed and saved.[/yellow]")
+            break
         except Exception as e:  # noqa: BLE001 — one bug failing must not sink the run
             console.print(f"[red]error: {e}[/red]")
             run_art.append_result({"bug_id": bug_id, "error": str(e), "solved": False})

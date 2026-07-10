@@ -17,10 +17,20 @@ from typing import Any, Optional
 import config
 
 
+class LLMUnavailable(RuntimeError):
+    """The endpoint is dead — not this bug being hard. Raised after repeated
+    transport failures so a wedged server aborts the run instead of silently marking
+    every remaining bug 'error: Request timed out.'"""
+
+
+_consecutive_failures = 0
+
+
 def _client():
     # Imported lazily so harness_client --smoke has no hard openai dependency.
     from openai import OpenAI
-    return OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL)
+    return OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL,
+                  timeout=config.LLM_TIMEOUT, max_retries=config.LLM_MAX_RETRIES)
 
 
 def served_model() -> str:
@@ -75,14 +85,30 @@ def generate(messages: list[dict], *, k: int = 1,
     k candidates come back via `n=k`. Every candidate's raw text is returned;
     patch extraction happens downstream (build_patch handles code blocks/diffs).
     """
-    resp = _client().chat.completions.create(
-        model=model,
-        messages=_merge_consecutive(messages),
-        temperature=temperature,
-        max_tokens=max_tokens,
-        n=k,
-        seed=seed,
-    )
+    # A wedged/dead server shows up as a read timeout OR a connection error (refused,
+    # reset, accept-backlog full). Both mean "endpoint down". APIStatusError (400/404)
+    # does not — that's a real problem with this one request, so it stays per-bug.
+    from openai import APIConnectionError, APITimeoutError
+    global _consecutive_failures
+    try:
+        resp = _client().chat.completions.create(
+            model=model,
+            messages=_merge_consecutive(messages),
+            temperature=temperature,
+            max_tokens=max_tokens,
+            n=k,
+            seed=seed,
+        )
+    except (APITimeoutError, APIConnectionError) as e:
+        _consecutive_failures += 1
+        if _consecutive_failures >= config.LLM_MAX_CONSECUTIVE_TIMEOUTS:
+            raise LLMUnavailable(
+                f"{_consecutive_failures} consecutive transport failures at "
+                f"{config.OPENAI_BASE_URL} (timeout={config.LLM_TIMEOUT:.0f}s): "
+                f"{type(e).__name__} — the endpoint looks wedged or down. "
+                "Check the vLLM log; restart it before re-running.") from None
+        raise
+    _consecutive_failures = 0
     candidates = [c.message.content or "" for c in resp.choices]
     usage = getattr(resp, "usage", None)
     return {

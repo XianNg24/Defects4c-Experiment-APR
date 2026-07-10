@@ -155,6 +155,8 @@ def critique(bug_id: str, buggy_context: str, failed_code: str, verdict: dict,
     try:
         resp = llm.generate(_prompt(buggy_context, failed_code, verdict, evidence, patch_diff),
                             k=1, temperature=0.0, seed=seed, model=model)["candidates"][0]
+    except llm.LLMUnavailable:
+        raise                       # endpoint is dead — abort the run, don't degrade
     except Exception as e:  # noqa: BLE001 — critic failure must not sink the run
         return Critique(fallback_class, f"critic call failed: {e}", "", "")
     crit = _parse(resp, fallback_class)

@@ -307,6 +307,8 @@ class RepairRunner:
             try:
                 resp = llm.generate(probe, k=1, temperature=0.0,
                                     seed=self.seed, model=self.model)["candidates"][0]
+            except llm.LLMUnavailable:
+                raise                   # endpoint is dead — abort the run
             except Exception:  # noqa: BLE001
                 break
             m = _TOOL_REQUEST.search(resp or "")

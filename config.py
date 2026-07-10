@@ -18,6 +18,12 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "EMPTY")             # vLLM ig
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:8888/v1/")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "deepseek-ai/deepseek-coder-6.7b-instruct")
 LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "4096"))
+# Per-request timeout. openai's default is read=600s with 2 retries, so one wedged
+# server costs ~30min per call and silently poisons a whole run.
+LLM_TIMEOUT = float(os.environ.get("LLM_TIMEOUT", "180"))
+LLM_MAX_RETRIES = int(os.environ.get("LLM_MAX_RETRIES", "1"))
+# Consecutive timeouts that mean "the endpoint is dead", not "this bug is hard".
+LLM_MAX_CONSECUTIVE_TIMEOUTS = int(os.environ.get("LLM_MAX_CONSECUTIVE_TIMEOUTS", "3"))
 # Serving precision. "auto" = the model's native config torch_dtype (what vLLM
 # loads by default). Set APR_DTYPE=bfloat16/float16 on BOTH serve + run to force one.
 LLM_DTYPE = os.environ.get("APR_DTYPE", "auto")
