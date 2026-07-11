@@ -74,6 +74,12 @@ _CTEST_PREFIX = re.compile(r"(?m)^[ \t]*\d+:[ \t]?")
 # (no expected/actual) — capture the location + test so we can show the condition.
 _CPPCHECK_ASSERT = re.compile(
     r"([\w./+-]+\.(?:cpp|cc|c)):(\d+)\(([\w:]+)\):\s*Assertion failed", re.I)
+# curl's runtests.pl: '<N>: stdout FAILED: <reason>' + the test's description line
+# 'test <N>...[<description>]'.
+_CURL_FAIL = re.compile(
+    r"^\s*(\d+):\s*((?:stdout|stderr|exit code|protocol|memory) FAILED[^\n]*)"
+    r"(?:\n\s*([^\n]+))?", re.M)
+_CURL_TEST = re.compile(r"test\s+(\d+)\.\.\.\[(.+?)\]")
 
 
 def _tail(text: str, n: int = 40) -> str:
@@ -109,6 +115,16 @@ def _extract_assertion(text: str) -> Optional[dict]:
             out["line"] = int(cc.group(2))
             out["path"] = cc.group(1)
             out["detail"] = f"ASSERT failed in {cc.group(3)}"
+        elif _CURL_FAIL.search(text):
+            # curl (use raw text: its '1441:' test number looks like a ctest prefix
+            # and would be stripped from `clean`). Show the failed test + reason.
+            desc = dict(_CURL_TEST.findall(text))
+            parts = []
+            for num, kind, reason in _CURL_FAIL.findall(text)[:3]:
+                d = desc.get(num, "")
+                head = f"test {num}" + (f" ({d})" if d else "")
+                parts.append(f"{head}: {kind.strip()} {reason.strip()}".strip())
+            out["detail"] = " | ".join(parts)[:400]
         else:
             m = re.search(r"Failure\b.*?(?=\n\S|\Z)", clean, re.S)
             if m:
