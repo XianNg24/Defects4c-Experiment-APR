@@ -25,11 +25,17 @@ import asan_parse
 
 _CRASH = re.compile(
     r"Segmentation fault|SIGSEGV|SIGABRT|\bAborted\b|core dumped|"
+    r"\*\*\*Exception|\(SEGFAULT\)|"   # ctest crash markers (not stray 'segfault' in a test name)
     r"Test interrupted by SIG|stack smashing|double free|munmap_chunk", re.I)
 _COMPILE = re.compile(
     r"\berror:|ninja: build stopped|Command \d+ failed|"
     r"undefined reference|No such file or directory", re.I)
-_TIMEOUT = re.compile(r"timed out|timeout|Killed|exceeded.*time", re.I)
+# Real timeout evidence only. NOT the bare word "timeout": ctest prints
+# "Test timeout computed to be: N" for every test, so matching "timeout" mislabels
+# ordinary test failures. A genuine timeout shows ctest's "***Timeout" or a kill.
+_TIMEOUT = re.compile(
+    r"\*\*\*Timeout|\btimed out\b|\bKilled\b|\bTerminated\b|exceeded.{0,20}time|signal 9",
+    re.I)
 _ASSERT_FAIL = re.compile(
     r"\bFAILED\b|\d+% tests? (?:failed|passed)|\bFailure\b|Assertion|EXPECT_|ASSERT_", re.I)
 
@@ -95,15 +101,18 @@ def triage(log_text: str) -> dict:
                 "summary": "build failed: " + (ce["message"] if ce else "compile error"),
                 "log_excerpt": _tail(log_text)}
 
-    if _TIMEOUT.search(log_text) and not passed:
-        return {"failure_class": "timeout", "summary": "run exceeded its time budget",
-                "log_excerpt": _tail(log_text)}
-
+    # Assertion failures are checked before timeout: a run that produced a real
+    # test failure is an assertion_mismatch even if a "***Timeout" appears for some
+    # *other* test — the failing test is the actionable signal.
     if _ASSERT_FAIL.search(log_text) and not re.search(r"0 tests? failed|100% tests passed", log_text):
         a = _extract_assertion(log_text)
         loc = f" at {a['file']}:{a['line']}" if a and a.get("file") else ""
         return {"failure_class": "assertion_mismatch", "assertion": a,
                 "summary": f"a test failed on an assertion{loc}",
+                "log_excerpt": _tail(log_text)}
+
+    if _TIMEOUT.search(log_text) and not passed:
+        return {"failure_class": "timeout", "summary": "run exceeded its time budget",
                 "log_excerpt": _tail(log_text)}
 
     if passed:
