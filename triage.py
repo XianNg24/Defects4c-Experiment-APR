@@ -80,6 +80,10 @@ _CURL_FAIL = re.compile(
     r"^\s*(\d+):\s*((?:stdout|stderr|exit code|protocol|memory) FAILED[^\n]*)"
     r"(?:\n\s*([^\n]+))?", re.M)
 _CURL_TEST = re.compile(r"test\s+(\d+)\.\.\.\[(.+?)\]")
+# Catch2 (CLI11, many C++ libs): 'file:line: FAILED:' then the CHECK/REQUIRE
+# expression and its 'with expansion:' / exception message, up to a blank line.
+_CATCH2 = re.compile(
+    r"([\w./+-]+):(\d+):\s*FAILED:\s*(.*?)(?=\n[ \t]*\n|\n={5,}|\Z)", re.S)
 
 
 def _tail(text: str, n: int = 40) -> str:
@@ -117,6 +121,14 @@ def _extract_assertion(text: str) -> Optional[dict]:
             out["line"] = int(cc.group(2))
             out["path"] = cc.group(1)
             out["detail"] = f"ASSERT failed in {cc.group(3)}"
+        elif _CATCH2.findall(clean):
+            # Catch2: file:line: FAILED: + the CHECK/REQUIRE expr and its expansion
+            m = _CATCH2.findall(clean)
+            out["file"] = os.path.basename(m[0][0])
+            out["line"] = int(m[0][1])
+            out["detail"] = " | ".join(
+                f"{os.path.basename(f_)}:{ln}: {' '.join(body.split())}"
+                for f_, ln, body in m[:2])[:400]
         elif _CURL_FAIL.search(text):
             # curl (use raw text: its '1441:' test number looks like a ctest prefix
             # and would be stripped from `clean`). Show the failed test + reason.
