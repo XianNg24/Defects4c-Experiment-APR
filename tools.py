@@ -51,6 +51,20 @@ class Tool:
                 "expensive": self.expensive}
 
 
+def _sanitizer_block(diag: dict) -> str:
+    """The sanitizer trace plus the source at the faulting file:line — the code where
+    the memory/UB error occurs, which is the fix site. Skips gracefully when the fault
+    is in the sanitizer runtime / a header not on the host mount."""
+    block = asan_parse.to_prompt_block(diag)
+    fp, fl = diag.get("fault_file"), diag.get("fault_line")
+    if fp and fl:
+        import test_source
+        win = test_source.source_window(fp, fl)
+        if win:
+            block += "\n- code at the faulting location:\n```cpp\n" + win + "\n```"
+    return block
+
+
 # ── sanitizer rebuild: the one expensive tool ─────────────────────────────────
 class SanitizerRebuildTool(Tool):
     name = "sanitizer_rebuild"
@@ -80,7 +94,7 @@ class SanitizerRebuildTool(Tool):
                               "", {"note": "sanitizer rebuild produced no report "
                                    "(the test framework likely caught the signal first)"},
                               expensive=True)
-        return ToolResult(self.name, asan_parse.to_prompt_block(diag),
+        return ToolResult(self.name, _sanitizer_block(diag),
                           {"diagnosis": diag}, expensive=True)
 
 
@@ -160,7 +174,7 @@ _BY_NAME = {t.name: t for t in REGISTRY}
 def format_sanitizer_report(evidence: dict) -> Optional[str]:
     """When triage already found a sanitizer report, format it directly (no rebuild)."""
     if evidence.get("failure_class") == "sanitizer_report" and evidence.get("sanitizer"):
-        return asan_parse.to_prompt_block(evidence["sanitizer"])
+        return _sanitizer_block(evidence["sanitizer"])
     return None
 
 
