@@ -123,6 +123,12 @@ class TestDiffTool(Tool):
             if win:
                 lines.append("- asserted condition (test source):\n```cpp\n" + win + "\n```")
         if len(lines) == 1:
+            # No structured assertion. The log tail is only meaningful for a genuine
+            # test failure; for build-only / unclassified logs (e.g. an 'unknown' bug
+            # the LLM probed via the hybrid) it's build noise, so emit no block rather
+            # than a fake 'Failing test assertion'.
+            if ctx.evidence.get("failure_class") != "assertion_mismatch":
+                return ToolResult(self.name, "", {"assertion": a})
             lines.append("- " + (ctx.evidence.get("log_excerpt", "")[:400]))
         return ToolResult(self.name, "\n".join(lines), {"assertion": a})
 
