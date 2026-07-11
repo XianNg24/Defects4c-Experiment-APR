@@ -91,6 +91,19 @@ def _inject_block(messages: list, block: str, trailer: str = "") -> list:
 
 _TOOL_REQUEST = re.compile(r"REQUEST_TOOL:\s*([a-z_]+)", re.I)
 
+# Appended as the last instruction so it's the most salient at generation time.
+_REPAIR_GUIDANCE = (
+    "How to write the fix:\n"
+    "- Change ONLY the code at the infill location. Do not modify, reformat, add, or "
+    "remove any other line of the function — leave all surrounding code exactly as-is.\n"
+    "- Make the smallest change that fixes the failure. Prefer a minimal edit over "
+    "rewriting the logic.\n"
+    "- Think about the edge cases the failing test exercises (empty/NULL inputs, "
+    "boundary and off-by-one values, integer overflow, buffer bounds) and make sure "
+    "your line handles them.\n"
+    "- Output ONLY the replacement code for the infill location, as a single "
+    "```cpp code block, and nothing else.")
+
 
 def _feedback_block(verdict: dict) -> str:
     """Turn a failing verdict into a compact repair-prompt feedback section.
@@ -394,6 +407,11 @@ class RepairRunner:
             if state.mode == "compile_error":
                 state.infra_blocked = True
                 return state
+
+        # Final, most-salient instruction: constrain the edit to the infill location,
+        # keep it minimal, and consider edge cases (over-editing/rewrites are a top
+        # cause of compile errors and regressions).
+        messages = _inject_block(messages, _REPAIR_GUIDANCE)
 
         init: GState = {
             "round_idx": 0,
