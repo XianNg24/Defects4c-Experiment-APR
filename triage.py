@@ -36,8 +36,18 @@ _COMPILE = re.compile(
 _TIMEOUT = re.compile(
     r"\*\*\*Timeout|\btimed out\b|\bKilled\b|\bTerminated\b|exceeded.{0,20}time|signal 9",
     re.I)
+# Real test-failure markers only. NOT the bare word "Failed"/"Failure": cmake
+# configure prints "Performing Test X - Failed" for absent features, and build logs
+# carry it too, which fabricated assertions out of pure build output.
 _ASSERT_FAIL = re.compile(
-    r"\bFAILED\b|\d+% tests? (?:failed|passed)|\bFailure\b|Assertion|EXPECT_|ASSERT_", re.I)
+    r"\[\s*FAILED\s*\]|"                        # cmocka/gtest per-test marker
+    r"\d+% tests? (?:failed|passed)|"           # ctest summary line
+    r"\btests? failed\b|"                       # "N tests failed"
+    r"\*\*\*Failed|"                            # ctest per-test result
+    r"\bTESTFAIL\b|\b(?:stdout|stderr|exit|memory|protocol) FAILED|"  # curl runtests.pl
+    r":\d+:\s*(?:error:\s*)?Failure\b|"         # gtest/cmocka  file:line: Failure
+    r"\bAssertion\b.*\bfail|"                   # assert() / assertion failed
+    r"\bEXPECT_\w+|\bASSERT_\w+", re.I)         # gtest macros surfaced in output
 
 # gtest expected/actual block
 # gtest: 'file:line: Failure'  |  cmocka: 'file:line: error: Failure!'
