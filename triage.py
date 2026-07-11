@@ -50,9 +50,16 @@ _ASSERT_FAIL = re.compile(
     r"\bEXPECT_\w+|\bASSERT_\w+", re.I)         # gtest macros surfaced in output
 
 # gtest expected/actual block
-# gtest: 'file:line: Failure'  |  cmocka: 'file:line: error: Failure!'
+# Failing-test location across frameworks, keeping the FULL path so the tool can
+# read the test source there: gtest 'file:line: Failure', cmocka 'file:line: error:
+# Failure', Catch2 'file:line: FAILED', cppcheck 'file:line(Class::test): Assertion'.
 _ASSERT_LOC = re.compile(
-    r"(?P<file>[^\s:]+\.(?:cc|cpp|c|h|hpp)):(?P<line>\d+):\s*(?:error:\s*)?Failure")
+    r"(?P<file>[\w./+-]+\.(?:cc|cpp|c|h|hpp)):(?P<line>\d+)"
+    r"(?::\s*(?:error:\s*)?(?:Failure|FAILED)|\([\w:]+\):\s*Assertion failed)")
+# gtest failure whose detail isn't a 'Value of/Expected/Actual' label (e.g. ASSERT_OK,
+# custom matchers): the failed expression + message follow 'file:line: Failure'.
+_GTEST_FAIL_BLOCK = re.compile(
+    r":\d+:\s*Failure\s*\n(.*?)(?=\n[ \t]*\n|\n\[\s*(?:FAILED|OK|RUN)|\n={5,}|\Z)", re.S)
 # cmocka prints the real detail (asserted expression, or 'a != b') on its own
 # '[ ERROR ] --- ...' line, *before* the generic 'error: Failure!' trailer.
 _CMOCKA_ERR = re.compile(r"\[\s*ERROR\s*\]\s*---\s*(.+)")
@@ -70,6 +77,9 @@ _GTEST_EXPECT = re.compile(
     rf"|\n[ \t]*\[\s*(?:FAILED|OK|RUN|PASSED|-+|=+)|\Z)", re.S)
 # ctest -VV prefixes every line with 'N: ' (the test number); strip it before parsing.
 _CTEST_PREFIX = re.compile(r"(?m)^[ \t]*\d+:[ \t]?")
+# gtest colorizes markers ('\x1b[0;31m[ FAILED ]'); strip so detail is clean and the
+# '[ FAILED ]' block boundary is matchable.
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
 # cppcheck's plain ASSERT(...) prints only 'file:line(Class::test): Assertion failed'
 # (no expected/actual) — capture the location + test so we can show the condition.
 _CPPCHECK_ASSERT = re.compile(
@@ -87,19 +97,21 @@ _CATCH2 = re.compile(
 
 
 def _tail(text: str, n: int = 40) -> str:
-    # Strip the ctest 'N: ' line prefix so the excerpt (the fallback shown when no
-    # structured detail is extracted) is clean for every framework.
-    lines = [l for l in _CTEST_PREFIX.sub("", text).splitlines() if l.strip()]
+    # Strip ANSI colors + the ctest 'N: ' line prefix so the excerpt (the fallback
+    # shown when no structured detail is extracted) is clean for every framework.
+    lines = [l for l in _ANSI.sub("", _CTEST_PREFIX.sub("", text)).splitlines() if l.strip()]
     return "\n".join(lines[-n:])
 
 
 def _extract_assertion(text: str) -> Optional[dict]:
-    loc = _ASSERT_LOC.search(text)
+    clean = _ANSI.sub("", _CTEST_PREFIX.sub("", text))   # drop colors + ctest 'N: '
     out: dict = {}
+    # Location + FULL path (any framework), so the tool can read the test source there.
+    loc = _ASSERT_LOC.search(clean)
     if loc:
         out["file"] = os.path.basename(loc.group("file"))
         out["line"] = int(loc.group("line"))
-    clean = _CTEST_PREFIX.sub("", text)   # drop ctest 'N: ' line prefixes
+        out["path"] = loc.group("file")
     cmocka = [c.strip() for c in _CMOCKA_ERR.findall(clean)]
     if cmocka:
         # the asserted expression / operand mismatch — the actionable part
@@ -108,6 +120,8 @@ def _extract_assertion(text: str) -> Optional[dict]:
     else:
         gt = _GTEST_EXPECT.findall(clean)
         cc = _CPPCHECK_ASSERT.search(clean)
+        catch2 = _CATCH2.findall(clean)
+        gfb = _GTEST_FAIL_BLOCK.search(clean)
         if gt:
             parts = []
             for k, v in gt:
@@ -115,20 +129,11 @@ def _extract_assertion(text: str) -> Optional[dict]:
                 parts.append(f"{k}: {v if v else '(no output)'}")
             out["detail"] = " | ".join(dict.fromkeys(parts))[:400]
         elif cc:
-            # plain ASSERT: no values printed — record location so the tool can pull
-            # the actual asserted condition from the test source.
-            out["file"] = os.path.basename(cc.group(1))
-            out["line"] = int(cc.group(2))
-            out["path"] = cc.group(1)
-            out["detail"] = f"ASSERT failed in {cc.group(3)}"
-        elif _CATCH2.findall(clean):
-            # Catch2: file:line: FAILED: + the CHECK/REQUIRE expr and its expansion
-            m = _CATCH2.findall(clean)
-            out["file"] = os.path.basename(m[0][0])
-            out["line"] = int(m[0][1])
+            out["detail"] = f"ASSERT failed in {cc.group(3)}"   # location set above
+        elif catch2:
             out["detail"] = " | ".join(
                 f"{os.path.basename(f_)}:{ln}: {' '.join(body.split())}"
-                for f_, ln, body in m[:2])[:400]
+                for f_, ln, body in catch2[:2])[:400]
         elif _CURL_FAIL.search(text):
             # curl (use raw text: its '1441:' test number looks like a ctest prefix
             # and would be stripped from `clean`). Show the failed test + reason.
@@ -139,6 +144,10 @@ def _extract_assertion(text: str) -> Optional[dict]:
                 head = f"test {num}" + (f" ({d})" if d else "")
                 parts.append(f"{head}: {kind.strip()} {reason.strip()}".strip())
             out["detail"] = " | ".join(parts)[:400]
+        elif gfb and gfb.group(1).strip():
+            # gtest with a non-labeled failure (ASSERT_OK, custom matcher): the failed
+            # expression + status message that follow 'file:line: Failure'.
+            out["detail"] = " ".join(gfb.group(1).split())[:400]
         else:
             m = re.search(r"Failure\b.*?(?=\n\S|\Z)", clean, re.S)
             if m:
