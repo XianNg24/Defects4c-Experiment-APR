@@ -94,15 +94,30 @@ _TOOL_REQUEST = re.compile(r"REQUEST_TOOL:\s*([a-z_]+)", re.I)
 # Appended as the last instruction so it's the most salient at generation time.
 _REPAIR_GUIDANCE = (
     "How to write the fix:\n"
+    "- The buggy line shown above is INCORRECT and is what causes the failure. Your "
+    "fix MUST be different from it — do NOT copy or reproduce the buggy line, or the "
+    "bug remains.\n"
     "- Change ONLY the code at the infill location. Do not modify, reformat, add, or "
     "remove any other line of the function — leave all surrounding code exactly as-is.\n"
-    "- Make the smallest change that fixes the failure. Prefer a minimal edit over "
-    "rewriting the logic.\n"
+    "- Make the smallest change to the infill line that actually fixes the failure "
+    "(minimal, but it must genuinely differ from the buggy line).\n"
     "- Think about the edge cases the failing test exercises (empty/NULL inputs, "
     "boundary and off-by-one values, integer overflow, buffer bounds) and make sure "
     "your line handles them.\n"
     "- Output ONLY the replacement code for the infill location, as a single "
     "```cpp code block, and nothing else.")
+
+
+_FENCE = re.compile(r"^```\w*\s*|\s*```$")
+_BUGGY_HUNK = re.compile(r"buggy line which was removed.*?```(?:cpp)?\s*(.*?)```", re.S | re.I)
+
+
+def _norm_code(s: str) -> str:
+    """Normalize a code snippet for equality: drop fences, comments, all whitespace."""
+    s = _FENCE.sub("", (s or "").strip())
+    s = re.sub(r"//[^\n]*", "", s)              # line comments (end at newline)
+    s = re.sub(r"/\*.*?\*/", "", s, flags=re.S)  # block comments
+    return re.sub(r"\s+", "", s)
 
 
 def _feedback_block(verdict: dict) -> str:
@@ -111,6 +126,12 @@ def _feedback_block(verdict: dict) -> str:
     When the patch failed to *compile*, headline the exact compiler diagnostics
     (Recommendation B) rather than a raw ninja dump — the errors are what the model
     must fix, and the harness flattens the log so they're otherwise buried."""
+    if verdict.get("echo"):
+        return (
+            "Your previous line is IDENTICAL to the buggy line — that is exactly what "
+            "causes the failure, so it cannot fix the bug. Produce a genuinely "
+            "DIFFERENT line for the infill location.\n"
+            "Return only the corrected code in a single ```cpp ... ``` block.")
     tail = _as_text(verdict.get("log_tail")).strip()
     cerrs = triage.compile_errors(tail)
     if cerrs:
@@ -215,7 +236,10 @@ class RepairRunner:
         state["solved"] = False
         if last_fail_verdict is None:
             state["feedback"] = None
-        elif triage.compile_errors(_as_text(last_fail_verdict.get("log_tail"))):
+        elif last_fail_verdict.get("echo") or \
+                triage.compile_errors(_as_text(last_fail_verdict.get("log_tail"))):
+            # echo (reproduced the buggy line) and compile errors are mechanical →
+            # direct feedback, not the semantic critic.
             state["feedback"] = _feedback_block(last_fail_verdict)
         elif self.use_critic:
             state["feedback"] = self._run_critic(last_fail_code, last_fail_verdict,
@@ -242,6 +266,13 @@ class RepairRunner:
     # ── one candidate: build_patch → fix → status ─────────────────────────────
     def _verify_one(self, response: str):
         code = extract_fix_code(response)     # last fenced block = the corrected line
+        # Echo guard: the model just re-applied the buggy line the prompt displays.
+        # That reproduces the bug, so it can't pass — skip the (expensive) build+test
+        # and turn it straight into "produce a different fix" feedback.
+        if self._buggy_line and _norm_code(code) == self._buggy_line:
+            return None, None, {"passed": False, "build_ok": None, "echo": True,
+                                "error": "fix reproduces the buggy line (no real change)",
+                                "return_code": None}
         # No usable code (model rambled / empty block) — build_patch would 400.
         if not code.strip() or code.strip().strip("`").strip().rstrip("cpp").strip() == "":
             return None, None, {"passed": False, "build_ok": False,
@@ -387,6 +418,9 @@ class RepairRunner:
         # the original buggy function + infill location (last user turn), for the Critic
         self._buggy_context = next((m["content"] for m in reversed(pd["prompt"])
                                     if m["role"] == "user"), "")
+        # the buggy line the prompt displays as a hint — the model often just echoes it
+        m = _BUGGY_HUNK.search(self._buggy_context)
+        self._buggy_line = _norm_code(m.group(1)) if m else ""
 
         messages = list(pd["prompt"])
         # Recommendation A: the base prompt shows only the buggy function, so the
