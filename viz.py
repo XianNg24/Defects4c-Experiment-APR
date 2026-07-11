@@ -258,6 +258,40 @@ def _safe_bug_dir(bug_id: str) -> str:
     return re.sub(r"[^A-Za-z0-9._@-]", "_", bug_id)
 
 
+# The paper's fault taxonomy (metadata.type.id prefix), saved per bug in defect.json.
+_CAT_BY_ID = {"A": "Signature", "B": "Sanitizer",
+              "C": "Memory Error", "D": "Logic Organization"}
+
+
+def _bug_category(run_dir: str, bug_id: str) -> tuple:
+    """(top_category, full_name) from the benchmark's metadata.type; ('', '') if
+    unavailable. Top category is the paper's label: Signature / Sanitizer / Memory
+    Error / Logic Organization for bugs, CVE for vulnerabilities."""
+    for d in (bug_id, _safe_bug_dir(bug_id)):
+        p = os.path.join(run_dir, d, "defect.json")
+        if os.path.exists(p):
+            try:
+                t = (json.load(open(p)).get("additional_info", {})
+                     .get("metadata", {}).get("type") or {})
+            except Exception:  # noqa: BLE001
+                return ("", "")
+            if not t:
+                return ("", "")
+            tid = str(t.get("id", ""))
+            name = t.get("name", "")
+            if t.get("type") == "cve" or tid.startswith("CVE"):
+                return ("CVE", name or "CVE")
+            return (_CAT_BY_ID.get(tid.split(".")[0], name.split(":")[0]), name)
+    return ("", "")
+
+
+def _attach_categories(run_dir: str, rows: list) -> None:
+    """Enrich each result row in place with cat_top / cat_name from defect.json."""
+    for r in rows:
+        top, name = _bug_category(run_dir, r.get("bug_id", ""))
+        r["cat_top"], r["cat_name"] = top, name
+
+
 def _status(r: dict, traces: dict) -> str:
     """True per-bug status recomputed from the trace's verdicts, not stale flags.
     s=solved, u=unsolved, e=errored, i=infra-blocked (baseline won't build)."""
@@ -315,6 +349,27 @@ def render_dashboard(meta: dict, rows: list, traces: dict, single: bool = False)
             f"<div class='pbar'>{segs}</div>"
             f"<div class='cnt'>{d['s']}/{d['n']}</div></div>")
 
+    # per-category breakdown (the paper's fault taxonomy)
+    cats: dict[str, dict] = {}
+    for r in rows:
+        c = r.get("cat_top") or "unlabeled"
+        d = cats.setdefault(c, {"s": 0, "u": 0, "e": 0, "i": 0, "n": 0})
+        d["n"] += 1
+        d[_status(r, traces)] += 1
+    if any(k != "unlabeled" for k in cats):
+        proj_html.append("<h2>Per-category breakdown "
+                         "<span class='k'>(paper fault taxonomy)</span></h2>")
+        for c, d in sorted(cats.items(), key=lambda kv: -kv[1]["n"]):
+            segs = ""
+            for cls, key in (("seg-good", "s"), ("seg-bad", "u"),
+                             ("seg-infra", "i"), ("seg-err", "e")):
+                if d[key]:
+                    segs += f"<span class='{cls}' style='flex:{d[key]}'></span>"
+            proj_html.append(
+                f"<div class='proj'><div class='lbl'>{esc(c)}</div>"
+                f"<div class='pbar'>{segs}</div>"
+                f"<div class='cnt'>{d['s']}/{d['n']}</div></div>")
+
     # bug table
     trows = []
     for r in sorted(rows, key=lambda r: (_status(r, traces) != "s", r.get("bug_id", ""))):
@@ -342,13 +397,18 @@ def render_dashboard(meta: dict, rows: list, traces: dict, single: bool = False)
                     f"{esc(short)}<span class='k'>{esc(sha)}</span></a>")
         else:
             name = f"<span class='mono'>{esc(short)}<span class='k'>{esc(sha)}</span></span>"
+        cat_chip = ""
+        if r.get("cat_top"):
+            cat_chip = (f"<span class='chip' title=\"{esc(r.get('cat_name',''))}\">"
+                        f"{esc(r['cat_top'])}</span>")
         trows.append(
             f"<tr><td>{name}</td><td>{badge}</td>"
+            f"<td>{cat_chip}</td>"
             f"<td>{'<span class=\"chip\">'+esc(fclass)+'</span>' if fclass else ''}</td>"
             f"<td class='num'>{esc(r.get('n_attempts',''))}</td>"
             f"<td class='num'>{esc(r.get('rounds_used',''))}</td></tr>")
     table = ("<h2>Bugs</h2><table><thead><tr><th>bug</th><th>result</th>"
-             "<th>failure class</th><th class='num'>attempts</th>"
+             "<th>category</th><th>failure class</th><th class='num'>attempts</th>"
              "<th class='num'>rounds</th></tr></thead><tbody>"
              + "".join(trows) + "</tbody></table>")
 
@@ -404,6 +464,7 @@ def load_run(run_dir: str):
         meta = json.load(f)
     rp = os.path.join(run_dir, "results.jsonl")
     rows = [json.loads(l) for l in open(rp) if l.strip()] if os.path.exists(rp) else []
+    _attach_categories(run_dir, rows)
     traces = {}
     for entry in os.listdir(run_dir):
         tpath = os.path.join(run_dir, entry, "trace.json")
@@ -420,6 +481,7 @@ def build(run_dir: str) -> str:
     rp = os.path.join(run_dir, "results.jsonl")
     if os.path.exists(rp):
         rows = [json.loads(l) for l in open(rp) if l.strip()]
+    _attach_categories(run_dir, rows)
 
     traces: dict[str, dict] = {}
     for entry in os.listdir(run_dir):
