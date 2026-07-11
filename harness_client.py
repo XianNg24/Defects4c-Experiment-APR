@@ -25,6 +25,8 @@ class HarnessError(RuntimeError):
     """Raised when the service returns an error status or an HTTP failure."""
 
 
+
+
 class HarnessClient:
     def __init__(self, base_url: str = config.DEFECTS4C_BASE_URL,
                  timeout: int = config.HARNESS_TIMEOUT):
@@ -110,9 +112,17 @@ class HarnessClient:
         """Return the BUGGY revision's failure output from the host mount — the run
         we diagnose (sanitizer report / crash / assertion lives here).
 
-        The bug set writes a ctest `.log`; the vulnerability set writes its
-        sanitizer oracle to `.msg` (with no `.log`), so we try both extensions,
-        buggy before fixed, returning the first non-empty."""
+        The `.log`/`.msg` the harness writes are already *test-only* ctest output
+        (`ctest … >> test_log`), so they carry the ctest summary, the crash-vs-failure
+        marker (`***Exception` vs `***Failed`) and the gtest assertion — everything we
+        need, with no build noise. (The JUnit `.log.xml` is structured but can't tell a
+        crash from an assertion for non-gtest frameworks, so it isn't preferred.)
+          1. `.log` / `.msg` — the real test output (vuln set writes its sanitizer
+             oracle to `.msg`);
+          2. the reproduce/build log (`<sha>.log`) — ONLY when tests never ran (the
+             build broke); prefixed so it is not mistaken for test output and triage
+             does not mine failures out of build noise.
+        Buggy revision before fix, first non-empty wins."""
         import os
         project, sha = bug_id.split("@", 1)
         logdir = os.path.join(config.OUT_DIR, project, "logs")
@@ -123,14 +133,14 @@ class HarnessClient:
                     txt = open(p, errors="replace").read()
                     if txt.strip():
                         return txt
-        # No test log → the build likely failed before any test ran. Fall back to
-        # the reproduce/build log so the build/configure error is still captured
-        # (Tier 1: otherwise the failure is silently invisible).
+        # No test output at all → tests never ran (build broke). Surface the build log
+        # so the configure/compile error is still visible, but label it: it is NOT
+        # test output, and triage must not mine test failures out of build noise.
         bl = os.path.join(logdir, f"{sha}.log")
         if os.path.exists(bl):
             txt = open(bl, errors="replace").read()
             if txt.strip():
-                return txt
+                return "[no test output captured — tests did not run; build log below]\n" + txt
         return ""
 
     def fix(self, bug_id: str, patch_path: str) -> str:
