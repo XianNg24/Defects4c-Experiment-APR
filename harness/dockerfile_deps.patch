@@ -1,0 +1,35 @@
+From ef035ea30a16918a29cabc1078dfe9bfb34ffc85 Mon Sep 17 00:00:00 2001
+From: agentic_apr <xianng.24@gmail.com>
+Date: Sat, 11 Jul 2026 16:19:14 +0000
+Subject: [PATCH] Install libfontconfig-dev, libxml2-dev, gettext,
+ autoconf-archive
+
+These were missing, making 15 Defects4C bugs infra-blocked (baseline won't build):
+  libgd x5   -> "fontconfig requested but not found"   (libfontconfig-dev)
+  php-src x8 -> "xml2-config not found"                (libxml2-dev)
+  sniproxy   -> "undefined macro AC_LIB_PREPARE_PREFIX" (gettext m4)
+  cjose      -> "undefined macro ..."                   (autoconf-archive)
+
+Verified in the running container: libgd configure now finds fontconfig
+(configure rc=0), xml2-config resolves (libxml2 2.9.10).
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ Dockerfile | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Dockerfile b/Dockerfile
+index 7a1b2b8..ebe0c16 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -154,6 +154,7 @@ RUN apt-get update -yq && \
+       dnsmasq-base dnsmasq-utils qemu-system-x86 qemu-utils libvirt0 libvirt-dev \
+       libapparmor-dev libslang2 xterm libatm1 libxtables12 \
+       meson graphviz libcpptest-dev yasm libjansson-dev libmagic-dev zlib1g-dev \
++      libfontconfig-dev libxml2-dev gettext autoconf-archive \
+     && \
+     apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+ 
+-- 
+2.43.0
+
