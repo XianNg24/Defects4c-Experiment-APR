@@ -40,10 +40,16 @@ _ASSERT_FAIL = re.compile(
     r"\bFAILED\b|\d+% tests? (?:failed|passed)|\bFailure\b|Assertion|EXPECT_|ASSERT_", re.I)
 
 # gtest expected/actual block
-_GTEST_LOC = re.compile(r"(?P<file>[^\s:]+\.(?:cc|cpp|c|h|hpp)):(?P<line>\d+):\s*Failure")
+# gtest: 'file:line: Failure'  |  cmocka: 'file:line: error: Failure!'
+_ASSERT_LOC = re.compile(
+    r"(?P<file>[^\s:]+\.(?:cc|cpp|c|h|hpp)):(?P<line>\d+):\s*(?:error:\s*)?Failure")
+# cmocka prints the real detail (asserted expression, or 'a != b') on its own
+# '[ ERROR ] --- ...' line, *before* the generic 'error: Failure!' trailer.
+_CMOCKA_ERR = re.compile(r"\[\s*ERROR\s*\]\s*---\s*(.+)")
+# gtest prints the useful part as labeled lines ('Value of:', 'Actual:', 'Expected:');
+# the ctest 'N: ' line prefix defeats a plain multi-line capture, so grab the labels.
 _GTEST_EXPECT = re.compile(
-    r"(?:Expected equality of these values|Value of|Expected|Which is):\s*\n?(?P<body>.+)",
-    re.I)
+    r"\b(Value of|Actual|Expected|Which is|To be equal to):\s*([^\n]+)")
 
 
 def _tail(text: str, n: int = 40) -> str:
@@ -52,15 +58,25 @@ def _tail(text: str, n: int = 40) -> str:
 
 
 def _extract_assertion(text: str) -> Optional[dict]:
-    loc = _GTEST_LOC.search(text)
+    loc = _ASSERT_LOC.search(text)
     out: dict = {}
     if loc:
-        out["file"] = loc.group("file")
+        out["file"] = os.path.basename(loc.group("file"))
         out["line"] = int(loc.group("line"))
-    # capture the few lines around the first "Failure" for expected/actual
-    m = re.search(r"Failure\b.*?(?=\n\S|\Z)", text, re.S)
-    if m:
-        out["detail"] = m.group(0).strip()[:400]
+    cmocka = [c.strip() for c in _CMOCKA_ERR.findall(text)]
+    if cmocka:
+        # the asserted expression / operand mismatch — the actionable part
+        uniq = list(dict.fromkeys(cmocka))
+        out["detail"] = "; ".join(uniq[-3:])[:400]
+    else:
+        gt = _GTEST_EXPECT.findall(text)
+        if gt:
+            out["detail"] = " | ".join(f"{k}: {v.strip()}"
+                                       for k, v in dict.fromkeys(gt))[:400]
+        else:
+            m = re.search(r"Failure\b.*?(?=\n\S|\Z)", text, re.S)
+            if m:
+                out["detail"] = m.group(0).strip()[:400]
     return out or None
 
 
