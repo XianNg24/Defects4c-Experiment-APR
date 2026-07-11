@@ -56,10 +56,20 @@ _ASSERT_LOC = re.compile(
 # cmocka prints the real detail (asserted expression, or 'a != b') on its own
 # '[ ERROR ] --- ...' line, *before* the generic 'error: Failure!' trailer.
 _CMOCKA_ERR = re.compile(r"\[\s*ERROR\s*\]\s*---\s*(.+)")
-# gtest prints the useful part as labeled lines ('Value of:', 'Actual:', 'Expected:');
-# the ctest 'N: ' line prefix defeats a plain multi-line capture, so grab the labels.
+# Labeled expected/actual lines. gtest puts the value on the SAME line
+# ('Value of: X'); cppcheck's test framework puts it on the FOLLOWING line(s), which
+# may be empty ("expect no warnings"). Capture the value up to the next label / blank
+# line / '____' separator, so it works for both and an empty value stays empty.
+_EA_LABEL = r"Value of|Expected|Actual|Which is|To be equal to"
+# Stop the value at: the next label, a blank line, a '____' separator, a gtest status
+# marker ('[  FAILED  ]', '[ RUN ]', '[----------]' — but NOT cppcheck's '[file:line]'
+# value), or end of text.
 _GTEST_EXPECT = re.compile(
-    r"\b(Value of|Actual|Expected|Which is|To be equal to):\s*([^\n]+)")
+    rf"\b({_EA_LABEL}):[ \t]*(.*?)"
+    rf"(?=\n[ \t]*(?:{_EA_LABEL}):|\n[ \t]*\n|\n[ \t]*_+"
+    rf"|\n[ \t]*\[\s*(?:FAILED|OK|RUN|PASSED|-+|=+)|\Z)", re.S)
+# ctest -VV prefixes every line with 'N: ' (the test number); strip it before parsing.
+_CTEST_PREFIX = re.compile(r"(?m)^[ \t]*\d+:[ \t]?")
 
 
 def _tail(text: str, n: int = 40) -> str:
@@ -73,18 +83,22 @@ def _extract_assertion(text: str) -> Optional[dict]:
     if loc:
         out["file"] = os.path.basename(loc.group("file"))
         out["line"] = int(loc.group("line"))
-    cmocka = [c.strip() for c in _CMOCKA_ERR.findall(text)]
+    clean = _CTEST_PREFIX.sub("", text)   # drop ctest 'N: ' line prefixes
+    cmocka = [c.strip() for c in _CMOCKA_ERR.findall(clean)]
     if cmocka:
         # the asserted expression / operand mismatch — the actionable part
         uniq = list(dict.fromkeys(cmocka))
         out["detail"] = "; ".join(uniq[-3:])[:400]
     else:
-        gt = _GTEST_EXPECT.findall(text)
+        gt = _GTEST_EXPECT.findall(clean)
         if gt:
-            out["detail"] = " | ".join(f"{k}: {v.strip()}"
-                                       for k, v in dict.fromkeys(gt))[:400]
+            parts = []
+            for k, v in gt:
+                v = " ".join(v.split())          # collapse newlines/whitespace
+                parts.append(f"{k}: {v if v else '(no output)'}")
+            out["detail"] = " | ".join(dict.fromkeys(parts))[:400]
         else:
-            m = re.search(r"Failure\b.*?(?=\n\S|\Z)", text, re.S)
+            m = re.search(r"Failure\b.*?(?=\n\S|\Z)", clean, re.S)
             if m:
                 out["detail"] = m.group(0).strip()[:400]
     return out or None
