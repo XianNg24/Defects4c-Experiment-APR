@@ -140,7 +140,12 @@ class HarnessClient:
         if os.path.exists(bl):
             txt = open(bl, errors="replace").read()
             if txt.strip():
-                return "[no test output captured — tests did not run; build log below]\n" + txt
+                # A build log can be ~MB; the error (if any) is at the end — the head is
+                # just successful steps. Keep the last 200 lines so we never return an
+                # unbounded blob (triage tails further before anything hits the prompt).
+                tail = "\n".join(txt.splitlines()[-200:])
+                return ("[no test output captured — tests did not run; last 200 lines "
+                        "of the build log below]\n" + tail)
         return ""
 
     def fix(self, bug_id: str, patch_path: str) -> str:
