@@ -83,7 +83,9 @@ _CURL_TEST = re.compile(r"test\s+(\d+)\.\.\.\[(.+?)\]")
 
 
 def _tail(text: str, n: int = 40) -> str:
-    lines = [l for l in text.splitlines() if l.strip()]
+    # Strip the ctest 'N: ' line prefix so the excerpt (the fallback shown when no
+    # structured detail is extracted) is clean for every framework.
+    lines = [l for l in _CTEST_PREFIX.sub("", text).splitlines() if l.strip()]
     return "\n".join(lines[-n:])
 
 
