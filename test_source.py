@@ -52,6 +52,25 @@ def _extract_func(src: str, name: str) -> str | None:
     return None
 
 
+def source_window(container_path: str, line: int, ctx: int = 5,
+                  max_chars: int = 700) -> str:
+    """The source around `line` of `container_path` (a /out/... path from a log),
+    with the target line marked — used to show a plain ASSERT's actual condition."""
+    p = container_path
+    if p.startswith("/out/"):
+        p = os.path.join(config.OUT_DIR, p[len("/out/"):])
+    if not os.path.exists(p):
+        return ""
+    try:
+        lines = open(p, errors="replace").read().splitlines()
+    except OSError:
+        return ""
+    lo, hi = max(0, line - 1 - ctx), min(len(lines), line + ctx)
+    win = [f"{'>> ' if i == line - 1 else '   '}{i + 1}: {lines[i]}"
+           for i in range(lo, hi)]
+    return "\n".join(win)[:max_chars]
+
+
 def failing_tests(bug_id: str, log_text: str, *, max_tests: int = 2,
                   max_chars: int = 2500) -> str:
     """Source of the failing test function(s) named in the log, or ""."""

@@ -70,6 +70,10 @@ _GTEST_EXPECT = re.compile(
     rf"|\n[ \t]*\[\s*(?:FAILED|OK|RUN|PASSED|-+|=+)|\Z)", re.S)
 # ctest -VV prefixes every line with 'N: ' (the test number); strip it before parsing.
 _CTEST_PREFIX = re.compile(r"(?m)^[ \t]*\d+:[ \t]?")
+# cppcheck's plain ASSERT(...) prints only 'file:line(Class::test): Assertion failed'
+# (no expected/actual) — capture the location + test so we can show the condition.
+_CPPCHECK_ASSERT = re.compile(
+    r"([\w./+-]+\.(?:cpp|cc|c)):(\d+)\(([\w:]+)\):\s*Assertion failed", re.I)
 
 
 def _tail(text: str, n: int = 40) -> str:
@@ -91,12 +95,20 @@ def _extract_assertion(text: str) -> Optional[dict]:
         out["detail"] = "; ".join(uniq[-3:])[:400]
     else:
         gt = _GTEST_EXPECT.findall(clean)
+        cc = _CPPCHECK_ASSERT.search(clean)
         if gt:
             parts = []
             for k, v in gt:
                 v = " ".join(v.split())          # collapse newlines/whitespace
                 parts.append(f"{k}: {v if v else '(no output)'}")
             out["detail"] = " | ".join(dict.fromkeys(parts))[:400]
+        elif cc:
+            # plain ASSERT: no values printed — record location so the tool can pull
+            # the actual asserted condition from the test source.
+            out["file"] = os.path.basename(cc.group(1))
+            out["line"] = int(cc.group(2))
+            out["path"] = cc.group(1)
+            out["detail"] = f"ASSERT failed in {cc.group(3)}"
         else:
             m = re.search(r"Failure\b.*?(?=\n\S|\Z)", clean, re.S)
             if m:

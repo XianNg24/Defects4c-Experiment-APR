@@ -101,6 +101,13 @@ class TestDiffTool(Tool):
             lines.append(f"- at {a['file']}:{a.get('line')}")
         if a.get("detail"):
             lines.append("- " + a["detail"].replace("\n", "\n  "))
+        # A plain ASSERT prints no values; show the actual asserted condition from the
+        # test source so the block isn't just a location.
+        if a.get("path") and a.get("line"):
+            import test_source
+            win = test_source.source_window(a["path"], a["line"])
+            if win:
+                lines.append("- asserted condition (test source):\n```cpp\n" + win + "\n```")
         if len(lines) == 1:
             lines.append("- " + (ctx.evidence.get("log_excerpt", "")[:400]))
         return ToolResult(self.name, "\n".join(lines), {"assertion": a})
