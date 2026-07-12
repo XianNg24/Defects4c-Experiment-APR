@@ -83,7 +83,11 @@ class SanitizerRebuildTool(Tool):
 
     def run(self, ctx: ToolContext) -> ToolResult:
         try:
-            h = ctx.client.reproduce(ctx.bug_id, sanitize=config.SANITIZE, force_cleanup=True)
+            # force_cleanup=False: the sanitizer build goes into a *separate*
+            # build_<sha>_asan dir, so it doesn't need `git clean -dfx` — and cleaning
+            # would wipe the plain build_<sha> that the later /fix (inplace_rebuild, no
+            # cmake) depends on, turning correct fixes into 'ninja: chdir' failures.
+            h = ctx.client.reproduce(ctx.bug_id, sanitize=config.SANITIZE, force_cleanup=False)
             ctx.client.wait_for_reproduce(h)
             logs = ctx.client.read_test_logs(ctx.bug_id)
         except Exception as e:  # noqa: BLE001 — a tool failing must not sink the run
