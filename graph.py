@@ -175,7 +175,8 @@ class RepairRunner:
                  diagnose: bool = config.ENABLE_DIAGNOSIS,
                  max_tool_requests: int = config.MAX_TOOL_REQUESTS,
                  use_critic: bool = config.USE_CRITIC,
-                 baseline: bool = False):
+                 baseline: bool = False,
+                 temperature: Optional[float] = config.TEMPERATURE):
         self.client = client
         self.k = k
         self.repair_rounds = repair_rounds
@@ -188,6 +189,10 @@ class RepairRunner:
         # Ablation: send the dataset prompt verbatim — no symbol digest, no diagnosis
         # blocks, no repair guidance. (observe+triage still run, for infra_blocked only.)
         self.baseline = baseline
+        # Override the dataset's per-defect temperature (every entry ships 0.01, i.e.
+        # near-greedy). None = use the dataset's. Raise it for k>1: at 0.01 the k
+        # candidates come back near-identical, so best-of-k buys nothing.
+        self.temperature = temperature
         self.graph = self._build_graph()
 
     # ── graph wiring ──────────────────────────────────────────────────────────
@@ -430,7 +435,8 @@ class RepairRunner:
         bug_id = defect["bug_id"]
         project = bug_id.split("@")[0]
         pd = defect["prompt_data"]
-        temperature = pd.get("temperature", 0.7) or 0.7
+        temperature = (self.temperature if self.temperature is not None
+                       else (pd.get("temperature", 0.7) or 0.7))
 
         state = AgentState(bug_id=bug_id, project=project, mode="static",
                            temperature=temperature)

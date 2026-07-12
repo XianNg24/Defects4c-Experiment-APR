@@ -64,6 +64,10 @@ def main() -> int:
                    help="how many extra tools the LLM may request (hybrid loop)")
     p.add_argument("--no-critic", action="store_true",
                    help="Phase 3: use raw log-tail feedback instead of the Critic on all-k-fail")
+    p.add_argument("--temperature", type=float, default=config.TEMPERATURE,
+                   help="sampling temperature; overrides the dataset's per-defect value "
+                        "(0.01 for every entry — near-greedy). Raise to ~0.6-0.8 when k>1, "
+                        "else the k candidates come back near-identical.")
     p.add_argument("--baseline", action="store_true",
                    help="ablation: send the dataset prompt VERBATIM — no symbol digest, "
                         "no diagnosis blocks, no repair guidance (observe+triage still run "
@@ -92,6 +96,7 @@ def main() -> int:
         "repair_rounds": args.repair_rounds, "seed": args.seed,
         "patch_method": args.patch_method, "diagnose": diagnose,
         "use_critic": use_critic, "baseline": args.baseline,
+        "temperature": args.temperature,   # None = dataset's own (0.01)
         "sanitizer_rebuild": config.ENABLE_SANITIZER_REBUILD, "n_bugs": len(bugs),
         "base_url": config.DEFECTS4C_BASE_URL, "llm_endpoint": config.OPENAI_BASE_URL,
     }
@@ -104,7 +109,7 @@ def main() -> int:
                           model=model, seed=args.seed,
                           patch_method=args.patch_method, diagnose=diagnose,
                           max_tool_requests=args.max_tool_requests, use_critic=use_critic,
-                          baseline=args.baseline)
+                          baseline=args.baseline, temperature=args.temperature)
 
     n_solved = 0
     n_infra = 0

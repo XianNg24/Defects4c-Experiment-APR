@@ -32,6 +32,11 @@ LLM_DTYPE = os.environ.get("APR_DTYPE", "auto")
 K_CANDIDATES = int(os.environ.get("APR_K", "1"))          # candidates per round
 REPAIR_ROUNDS = int(os.environ.get("APR_REPAIR_ROUNDS", "0"))
 SEED = int(os.environ.get("APR_SEED", "0"))
+# Sampling temperature. None = use the dataset's per-defect value, which is 0.01 for
+# every entry (near-greedy). Raise it (0.6-0.8) whenever k > 1: at 0.01 the k candidates
+# come back near-identical, so best-of-k adds cost without adding coverage.
+_t = os.environ.get("APR_TEMPERATURE")
+TEMPERATURE = float(_t) if _t else None
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
