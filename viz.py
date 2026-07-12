@@ -305,6 +305,15 @@ def _status(r: dict, traces: dict) -> str:
     return "u"
 
 
+def _ordered_trace_ids(rows: list, traces: dict) -> list:
+    """Bug ids that have a trace, in the SAME order as the results table:
+    solved first, then by id. Keeps the detail cards aligned with the table."""
+    return [r.get("bug_id")
+            for r in sorted(rows, key=lambda r: (_status(r, traces) != "s",
+                                                 r.get("bug_id", "")))
+            if r.get("bug_id") in traces]
+
+
 def render_dashboard(meta: dict, rows: list, traces: dict, single: bool = False) -> str:
     n = len(rows)
     st = {r.get("bug_id"): _status(r, traces) for r in rows}
@@ -434,7 +443,8 @@ def build_single_page(meta: dict, rows: list, traces: dict) -> str:
     """One self-contained page: dashboard + every timeline inlined via #anchors.
     Suitable for publishing as a shareable Artifact (no sub-pages)."""
     parts = [render_dashboard(meta, rows, traces, single=True)]
-    for bid, tr in traces.items():
+    for bid in _ordered_trace_ids(rows, traces):
+        tr = traces[bid]
         anchor = _safe_bug_dir(bid)
         top = "<a class='back' href='#'>↑ dashboard</a>"
         parts.append(f"<section id='bug-{esc(anchor)}' style='margin-top:40px;"
@@ -449,7 +459,8 @@ def build_artifact_body(meta: dict, rows: list, traces: dict) -> str:
     head/body wrapper, no theme toggle — the Artifact host supplies those)."""
     parts = [f"<style>{CSS}</style><div class='wrap'>",
              render_dashboard(meta, rows, traces, single=True)]
-    for bid, tr in traces.items():
+    for bid in _ordered_trace_ids(rows, traces):
+        tr = traces[bid]
         anchor = _safe_bug_dir(bid)
         top = "<a class='back' href='#'>↑ dashboard</a>"
         parts.append(f"<section id='bug-{esc(anchor)}' style='margin-top:40px;"
