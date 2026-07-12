@@ -59,7 +59,10 @@ MAX_TOOL_REQUESTS = int(os.environ.get("APR_MAX_TOOL_REQUESTS", "1"))
 USE_CRITIC = os.environ.get("APR_CRITIC", "1") not in ("0", "false", "")
 
 # Comma-separated substrings; a bug is skipped if it contains ANY of them.
-# Excluded by default: llvm (CPU-heavy) and njs (its ./configure/autotest hangs
-# in a loop, spews GBs into autoconf.err, and orphans a runaway process that
-# fills the disk — see host-resource-limits memory).
-EXCLUDE_SUBSTR = os.environ.get("APR_EXCLUDE_SUBSTR", "llvm___llvm,nginx___njs")
+# Excluded by default: llvm (CPU-heavy); njs (its ./configure/autotest hangs in a
+# loop, spews GBs into autoconf.err, and orphans a runaway process that fills the
+# disk — see host-resource-limits memory); pcre2 (autotools autogen.sh + serial
+# configure feature-probes + a full --enable-jit libpcre2 compile make every build
+# take minutes, unlike the cmake+ninja projects — only 1 bug, not worth the wall time).
+EXCLUDE_SUBSTR = os.environ.get(
+    "APR_EXCLUDE_SUBSTR", "llvm___llvm,nginx___njs,PCRE2Project___pcre2")
