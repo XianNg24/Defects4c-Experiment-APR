@@ -92,6 +92,24 @@ def _testlist_source(repo: str, testfiles: list, log_text: str,
     return "\n\n".join(out)[:max_chars]
 
 
+def _phpt_source(repo: str, testfiles: list, max_tests: int = 2,
+                 max_chars: int = 2000) -> str:
+    """PHP .phpt tests: the file itself is the whole spec — a --TEST-- name, a --FILE--
+    script, and a --EXPECT--/--EXPECTF-- expected output (the oracle). Show it directly;
+    there is no separate test function to extract."""
+    out = []
+    for tf in testfiles:
+        if not tf.endswith(".phpt"):
+            continue
+        p = os.path.join(repo, tf)
+        if not os.path.exists(p):
+            continue
+        out.append(f"// {tf}\n{open(p, errors='replace').read().strip()}")
+        if len(out) >= max_tests:
+            break
+    return "\n\n".join(out)[:max_chars]
+
+
 def source_window(container_path: str, line: int, ctx: int = 5,
                   max_chars: int = 700) -> str:
     """The source around `line` of `container_path` (a /out/... path from a log),
@@ -126,6 +144,8 @@ def failing_tests(bug_id: str, log_text: str, *, max_tests: int = 2,
     # data-driven tests (tcpdump TESTLIST + expected .out) have no test function.
     if any(os.path.basename(t) == "TESTLIST" for t in testfiles):
         return _testlist_source(repo, testfiles, log_text or "")
+    if any(t.endswith(".phpt") for t in testfiles):
+        return _phpt_source(repo, testfiles)
     names = []
     for m in _FAILED.finditer(log_text or ""):
         n = m.group(1).split(".")[-1]           # gtest Suite.Test -> Test

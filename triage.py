@@ -64,6 +64,9 @@ _AUTOMAKE_FAIL = re.compile(r"^\s*FAIL:\s+(\S+)", re.M)
 # of expected ('<') vs actual ('>') decode output.
 _TCPDUMP_FAIL = re.compile(r"Failed test:\s*(\S+)|^\s*(\S+)\s*:\s*TEST FAILED", re.M)
 _TCPDUMP_DIFF = re.compile(r"^([<>])[ \t]*(\S.*?)\s*$", re.M)
+# PHP's run-tests.php: 'FAIL <description> [path/to/test.phpt]' (also BORK/LEAK). The
+# banner above it ('PHP : ...', 'CWD : ...') is host noise, not the failing test.
+_PHP_FAIL = re.compile(r"^(?:FAIL|BORK|LEAK)\s+(.*?)\s*\[([^\]]+\.phpt)\]", re.M)
 
 # gtest expected/actual block
 # Failing-test location across frameworks, keeping the FULL path so the tool can
@@ -168,6 +171,11 @@ def _extract_assertion(text: str) -> Optional[dict]:
             # automake TAP: the names of the failing tests.
             names = list(dict.fromkeys(_AUTOMAKE_FAIL.findall(clean)))
             out["detail"] = "failed tests: " + ", ".join(names[:6])
+        elif _PHP_FAIL.search(clean):
+            # PHP run-tests.php: the failing .phpt test's description (+ path). The
+            # .phpt file (spec + expected output) is surfaced by failing_test.
+            out["detail"] = " | ".join(
+                f"{desc.strip()} [{path}]" for desc, path in _PHP_FAIL.findall(clean)[:3])[:400]
         elif _TCPDUMP_FAIL.search(clean):
             m = _TCPDUMP_FAIL.search(clean)
             name = m.group(1) or m.group(2)
