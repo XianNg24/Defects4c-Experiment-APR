@@ -111,6 +111,13 @@ _REPAIR_GUIDANCE = (
 _SINGLE_LINE_GUIDANCE = (
     "\n- The buggy code is a SINGLE line, so your fix must also be a single line that "
     "replaces it — do not add extra lines, statements, or braces.")
+# Appended when that single line is an if/for/while/switch header — the fix belongs
+# in the condition, not the control structure.
+_CONDITION_GUIDANCE = (
+    "\n- This line is an if/for/while/switch statement: change ONLY the expression "
+    "inside the condition parentheses. Keep the keyword, the parentheses, and the "
+    "loop/branch structure exactly as they are.")
+_CONTROL_FLOW = re.compile(r"^\s*(?:\}\s*)?(?:else\s+)?(?:if|for|while|switch)\b\s*\(")
 
 
 _FENCE = re.compile(r"^```\w*\s*|\s*```$")
@@ -427,10 +434,11 @@ class RepairRunner:
         m = _BUGGY_HUNK.search(self._buggy_context)
         self._buggy_line = _norm_code(m.group(1)) if m else ""
         # single-line buggy hunk (ignoring the '// buggy hunk' comment) → guide a
-        # single-line edit so the model doesn't expand a one-line change.
-        self._single_line = bool(m) and len(
-            [l for l in m.group(1).splitlines()
-             if l.strip() and not l.strip().startswith("//")]) == 1
+        # single-line edit; if that line is a control-flow header, confine to the cond.
+        code_lines = ([l for l in m.group(1).splitlines()
+                       if l.strip() and not l.strip().startswith("//")] if m else [])
+        self._single_line = len(code_lines) == 1
+        self._cond_only = self._single_line and bool(_CONTROL_FLOW.match(code_lines[0]))
 
         messages = list(pd["prompt"])
         # Recommendation A: the base prompt shows only the buggy function, so the
@@ -455,7 +463,11 @@ class RepairRunner:
         # Final, most-salient instruction: constrain the edit to the infill location,
         # keep it minimal, and consider edge cases (over-editing/rewrites are a top
         # cause of compile errors and regressions).
-        guidance = _REPAIR_GUIDANCE + (_SINGLE_LINE_GUIDANCE if self._single_line else "")
+        guidance = _REPAIR_GUIDANCE
+        if self._single_line:
+            guidance += _SINGLE_LINE_GUIDANCE
+        if self._cond_only:
+            guidance += _CONDITION_GUIDANCE
         messages = _inject_block(messages, guidance)
 
         init: GState = {
