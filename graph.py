@@ -106,6 +106,11 @@ _REPAIR_GUIDANCE = (
     "your line handles them.\n"
     "- Output ONLY the replacement code for the infill location, as a single "
     "```cpp code block, and nothing else.")
+# Appended only when the buggy code is a single line, so the model matches its edit
+# to the scope of the change.
+_SINGLE_LINE_GUIDANCE = (
+    "\n- The buggy code is a SINGLE line, so your fix must also be a single line that "
+    "replaces it — do not add extra lines, statements, or braces.")
 
 
 _FENCE = re.compile(r"^```\w*\s*|\s*```$")
@@ -421,6 +426,11 @@ class RepairRunner:
         # the buggy line the prompt displays as a hint — the model often just echoes it
         m = _BUGGY_HUNK.search(self._buggy_context)
         self._buggy_line = _norm_code(m.group(1)) if m else ""
+        # single-line buggy hunk (ignoring the '// buggy hunk' comment) → guide a
+        # single-line edit so the model doesn't expand a one-line change.
+        self._single_line = bool(m) and len(
+            [l for l in m.group(1).splitlines()
+             if l.strip() and not l.strip().startswith("//")]) == 1
 
         messages = list(pd["prompt"])
         # Recommendation A: the base prompt shows only the buggy function, so the
@@ -445,7 +455,8 @@ class RepairRunner:
         # Final, most-salient instruction: constrain the edit to the infill location,
         # keep it minimal, and consider edge cases (over-editing/rewrites are a top
         # cause of compile errors and regressions).
-        messages = _inject_block(messages, _REPAIR_GUIDANCE)
+        guidance = _REPAIR_GUIDANCE + (_SINGLE_LINE_GUIDANCE if self._single_line else "")
+        messages = _inject_block(messages, guidance)
 
         init: GState = {
             "round_idx": 0,
