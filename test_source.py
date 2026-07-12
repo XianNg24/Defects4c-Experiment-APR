@@ -17,6 +17,8 @@ import config
 
 _TPL = os.path.join(os.path.dirname(config.OUT_DIR), "defectsc_tpl")
 _FAILED = re.compile(r"\[\s*FAILED\s*\]\s+([A-Za-z_][\w.]*)")
+# tcpdump's data-driven runner: 'Failed test: <name>' / '<name> : TEST FAILED'.
+_TCPDUMP_FAIL = re.compile(r"Failed test:\s*(\S+)|^\s*(\S+)\s*:\s*TEST FAILED", re.M)
 
 
 def _meta(project: str, sha: str) -> dict | None:
@@ -52,6 +54,44 @@ def _extract_func(src: str, name: str) -> str | None:
     return None
 
 
+def _testlist_source(repo: str, testfiles: list, log_text: str,
+                     max_tests: int = 2, max_chars: int = 2000) -> str:
+    """tcpdump-style data-driven tests: there is no test *function* — a TESTLIST row
+    maps `<name> <input.pcap> <expected.out> <flags>`, and the expected `.out` file is
+    the oracle. Show the failing row's command and its expected output so the model
+    sees the full correct decode, not just the one diff line."""
+    testlist = next((t for t in testfiles if os.path.basename(t) == "TESTLIST"), None)
+    if not testlist:
+        return ""
+    tlp = os.path.join(repo, testlist)
+    if not os.path.exists(tlp):
+        return ""
+    names = []
+    for m in _TCPDUMP_FAIL.finditer(log_text or ""):
+        n = (m.group(1) or m.group(2) or "").strip()
+        if n and n not in names:
+            names.append(n)
+    if not names:
+        return ""
+    rows = open(tlp, errors="replace").read().splitlines()
+    out = []
+    for name in names[:max_tests]:
+        entry = next((r for r in rows if r.split() and r.split()[0] == name), None)
+        if not entry:
+            continue
+        cols = entry.split()
+        block = [f"// TESTLIST row: {entry.strip()}"]
+        if len(cols) >= 3:
+            block.append(f"// runs: tcpdump {' '.join(cols[3:])} -r {cols[1]}"
+                         f"  (stdout must equal {cols[2]})")
+            outp = os.path.join(os.path.dirname(tlp), cols[2])
+            if os.path.exists(outp):
+                exp = open(outp, errors="replace").read().rstrip("\n")
+                block.append(f"// expected output ({cols[2]}):\n{exp}")
+        out.append("\n".join(block))
+    return "\n\n".join(out)[:max_chars]
+
+
 def source_window(container_path: str, line: int, ctx: int = 5,
                   max_chars: int = 700) -> str:
     """The source around `line` of `container_path` (a /out/... path from a log),
@@ -82,6 +122,10 @@ def failing_tests(bug_id: str, log_text: str, *, max_tests: int = 2,
     if not b:
         return ""
     testfiles = (b.get("files") or {}).get("test") or []
+    repo = os.path.join(config.OUT_DIR, project, f"git_repo_dir_{sha}")
+    # data-driven tests (tcpdump TESTLIST + expected .out) have no test function.
+    if any(os.path.basename(t) == "TESTLIST" for t in testfiles):
+        return _testlist_source(repo, testfiles, log_text or "")
     names = []
     for m in _FAILED.finditer(log_text or ""):
         n = m.group(1).split(".")[-1]           # gtest Suite.Test -> Test
@@ -89,7 +133,6 @@ def failing_tests(bug_id: str, log_text: str, *, max_tests: int = 2,
             names.append(n)
     if not names or not testfiles:
         return ""
-    repo = os.path.join(config.OUT_DIR, project, f"git_repo_dir_{sha}")
     out = []
     for tf in testfiles:
         p = os.path.join(repo, tf)
