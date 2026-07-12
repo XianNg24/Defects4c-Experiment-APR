@@ -174,7 +174,8 @@ class RepairRunner:
                  patch_method: str = "direct",
                  diagnose: bool = config.ENABLE_DIAGNOSIS,
                  max_tool_requests: int = config.MAX_TOOL_REQUESTS,
-                 use_critic: bool = config.USE_CRITIC):
+                 use_critic: bool = config.USE_CRITIC,
+                 baseline: bool = False):
         self.client = client
         self.k = k
         self.repair_rounds = repair_rounds
@@ -184,6 +185,9 @@ class RepairRunner:
         self.diagnose = diagnose               # observe→triage→tools before generating
         self.max_tool_requests = max_tool_requests
         self.use_critic = use_critic           # Phase 3: structured feedback on all-k-fail
+        # Ablation: send the dataset prompt verbatim — no symbol digest, no diagnosis
+        # blocks, no repair guidance. (observe+triage still run, for infra_blocked only.)
+        self.baseline = baseline
         self.graph = self._build_graph()
 
     # ── graph wiring ──────────────────────────────────────────────────────────
@@ -352,6 +356,14 @@ class RepairRunner:
         Returns (messages_with_diagnosis, diagnosis_record)."""
         log = self._observe(bug_id)
         evidence = triage.triage(log)
+        if self.baseline:
+            # Ablation: the model gets the dataset prompt only. Still observe+triage so
+            # infra_blocked is detected exactly as in a normal run (same pass@k
+            # denominator), but run no tools and inject nothing.
+            record = {"evidence": {k: v for k, v in evidence.items() if k != "log_excerpt"},
+                      "tools_used": [], "blocks": []}
+            art.write_diagnosis(record, raw_log=log)
+            return messages, record
         ctx = tools.ToolContext(client=self.client, bug_id=bug_id,
                                 log_text=log, evidence=evidence)
         results = tools.seed(ctx)                     # deterministic seed
@@ -444,9 +456,10 @@ class RepairRunner:
         # Recommendation A: the base prompt shows only the buggy function, so the
         # model references symbols it can't see (undeclared-identifier/no-member is the
         # biggest compile-failure cause). Inject the declarations the fix likely needs.
-        digest = source_context.symbol_digest(bug_id, self._buggy_context)
-        if digest:
-            messages = _inject_block(messages, digest)
+        if not self.baseline:
+            digest = source_context.symbol_digest(bug_id, self._buggy_context)
+            if digest:
+                messages = _inject_block(messages, digest)
         # Phase 2 gather_context: observe the real failure, triage it, and apply
         # whichever diagnostic tools fit — no dataset label, no preset ASAN mode.
         if self.diagnose:
@@ -463,12 +476,13 @@ class RepairRunner:
         # Final, most-salient instruction: constrain the edit to the infill location,
         # keep it minimal, and consider edge cases (over-editing/rewrites are a top
         # cause of compile errors and regressions).
-        guidance = _REPAIR_GUIDANCE
-        if self._single_line:
-            guidance += _SINGLE_LINE_GUIDANCE
-        if self._cond_only:
-            guidance += _CONDITION_GUIDANCE
-        messages = _inject_block(messages, guidance)
+        if not self.baseline:
+            guidance = _REPAIR_GUIDANCE
+            if self._single_line:
+                guidance += _SINGLE_LINE_GUIDANCE
+            if self._cond_only:
+                guidance += _CONDITION_GUIDANCE
+            messages = _inject_block(messages, guidance)
 
         init: GState = {
             "round_idx": 0,

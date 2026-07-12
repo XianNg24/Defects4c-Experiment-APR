@@ -64,6 +64,10 @@ def main() -> int:
                    help="how many extra tools the LLM may request (hybrid loop)")
     p.add_argument("--no-critic", action="store_true",
                    help="Phase 3: use raw log-tail feedback instead of the Critic on all-k-fail")
+    p.add_argument("--baseline", action="store_true",
+                   help="ablation: send the dataset prompt VERBATIM — no symbol digest, "
+                        "no diagnosis blocks, no repair guidance (observe+triage still run "
+                        "so infra_blocked matches a normal run). Pair with --repair-rounds 0.")
     args = p.parse_args()
     model = args.model or llm.served_model()   # auto-sync to the running endpoint
     precision = llm.served_precision(model)    # bf16/fp16 — recorded for reproducibility
@@ -87,7 +91,7 @@ def main() -> int:
         "run_id": run_id, "model": model, "precision": precision, "k": args.k,
         "repair_rounds": args.repair_rounds, "seed": args.seed,
         "patch_method": args.patch_method, "diagnose": diagnose,
-        "use_critic": use_critic,
+        "use_critic": use_critic, "baseline": args.baseline,
         "sanitizer_rebuild": config.ENABLE_SANITIZER_REBUILD, "n_bugs": len(bugs),
         "base_url": config.DEFECTS4C_BASE_URL, "llm_endpoint": config.OPENAI_BASE_URL,
     }
@@ -99,7 +103,8 @@ def main() -> int:
     runner = RepairRunner(client, k=args.k, repair_rounds=args.repair_rounds,
                           model=model, seed=args.seed,
                           patch_method=args.patch_method, diagnose=diagnose,
-                          max_tool_requests=args.max_tool_requests, use_critic=use_critic)
+                          max_tool_requests=args.max_tool_requests, use_critic=use_critic,
+                          baseline=args.baseline)
 
     n_solved = 0
     n_infra = 0
