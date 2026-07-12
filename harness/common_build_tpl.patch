@@ -1,12 +1,61 @@
+From a93924dfd0c90354a663adcf546b3fe4e8389416 Mon Sep 17 00:00:00 2001
+From: agentic_apr <xianng.24@gmail.com>
+Date: Sun, 12 Jul 2026 13:51:11 +0000
+Subject: [PATCH] Patch build: reconfigure if the build dir is missing
+
+The rebuild path (inplace_rebuild) skipped cmake and ran 'ninja -C build_<sha>', so a
+build dir lost to a prior sanitizer rebuild's 'git clean -dfx' (or disk cleanup, or
+never built) made a CORRECT patch fail instantly with 'ninja: fatal: chdir - No such
+file or directory'. Now cmake reconfigures on a rebuild when build.ninja is absent; a
+warm build dir still rebuilds incrementally.
+
+Verified: cppcheck 192c30ab (build_<sha> wiped) reconfigures, builds, and the correct
+tokAt(5) fix passes (rc=0), instead of a 0s chdir fast-fail.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ .../projects_v1/common_build_tpl.jinja        | 53 +++++++++++++------
+ 1 file changed, 38 insertions(+), 15 deletions(-)
+
 diff --git a/defectsc_tpl/projects_v1/common_build_tpl.jinja b/defectsc_tpl/projects_v1/common_build_tpl.jinja
-index a566cc4..e622e5a 100644
+index a566cc4..b919132 100644
 --- a/defectsc_tpl/projects_v1/common_build_tpl.jinja
 +++ b/defectsc_tpl/projects_v1/common_build_tpl.jinja
-@@ -15,5 +15,26 @@ test_log=$2
- {%endif%}
+@@ -1,19 +1,42 @@
+ build_dir=$1
+ test_log=$2
  
- 
+-
+-
+-
+-{%if not is_rebuild %}
+-	cmake_flags="{{build_flags|join(" ") }}"
+-	
+-	cmake \
+-	$cmake_flags \
+-	-G Ninja -B $build_dir 
+-
+-
+-{%endif%}
+-
+-
 -ninja -C $build_dir 
++cmake_flags="{{build_flags|join(" ") }}"
++
++# Configure on a fresh build; on a rebuild (patch test), re-configure ONLY if the
++# build dir was lost — cleaned by a prior sanitizer rebuild's `git clean -dfx`, by
++# disk cleanup, or never built. Otherwise `ninja -C $build_dir` dies with
++# "chdir ... No such file or directory" and a CORRECT patch is falsely marked failed.
++{% if is_rebuild %}
++if [ ! -f "$build_dir/build.ninja" ]; then
++	echo "build dir missing — reconfiguring before rebuild"
++	cmake $cmake_flags -G Ninja -B $build_dir
++fi
++{% else %}
++cmake $cmake_flags -G Ninja -B $build_dir
++{% endif %}
++
++
 +{% if scope_test %}
 +# Scoped build (sanitizer path): build ONLY the failing test's executable, not the
 +# whole project — an ASan build of an entire project is huge and times out. Resolve
@@ -30,3 +79,6 @@ index a566cc4..e622e5a 100644
 +ninja -C $build_dir -j {{cpu_count}}
 +{% endif %}
  
+-- 
+2.43.0
+
