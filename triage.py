@@ -30,6 +30,11 @@ _CRASH = re.compile(
 _COMPILE = re.compile(
     r"\berror:|ninja: build stopped|Command \d+ failed|"
     r"undefined reference|No such file or directory", re.I)
+# A genuine build/link failure — real even when ctest 'ran' the test (the binary
+# failed to compile or load), so it overrides the tests-ran guard below.
+_LINK_ERR = re.compile(
+    r"undefined reference|undefined symbol|symbol lookup error|"
+    r"ninja: (?:build stopped|fatal|error)|cannot find -l", re.I)
 # Real timeout evidence only. NOT the bare word "timeout": ctest prints
 # "Test timeout computed to be: N" for every test, so matching "timeout" mislabels
 # ordinary test failures. A genuine timeout shows ctest's "***Timeout" or a kill.
@@ -45,9 +50,16 @@ _ASSERT_FAIL = re.compile(
     r"\btests? failed\b|"                       # "N tests failed"
     r"\*\*\*Failed|"                            # ctest per-test result
     r"\bTESTFAIL\b|\b(?:stdout|stderr|exit|memory|protocol) FAILED|"  # curl runtests.pl
+    r"#\s*FAIL:\s*[1-9]|"                       # automake summary '# FAIL: N' (N>0)
     r":\d+:\s*(?:error:\s*)?Failure\b|"         # gtest/cmocka  file:line: Failure
     r"\bAssertion\b.*\bfail|"                   # assert() / assertion failed
     r"\bEXPECT_\w+|\bASSERT_\w+", re.I)         # gtest macros surfaced in output
+# Evidence that tests actually ran (so a build 'error:' can't be a compile failure).
+_TESTS_RAN = re.compile(
+    r"#\s*(?:TOTAL|PASS|FAIL):|\d+% tests|\btests? (?:passed|failed)|"
+    r"\[\s*(?:OK|FAILED|RUN)\s*\]|Testing Complete|TESTDONE|Test #\d+", re.I)
+# automake per-test failures ('FAIL: <name>') — the actionable list.
+_AUTOMAKE_FAIL = re.compile(r"^\s*FAIL:\s+(\S+)", re.M)
 
 # gtest expected/actual block
 # Failing-test location across frameworks, keeping the FULL path so the tool can
@@ -148,6 +160,10 @@ def _extract_assertion(text: str) -> Optional[dict]:
             # gtest with a non-labeled failure (ASSERT_OK, custom matcher): the failed
             # expression + status message that follow 'file:line: Failure'.
             out["detail"] = " ".join(gfb.group(1).split())[:400]
+        elif _AUTOMAKE_FAIL.findall(clean):
+            # automake TAP: the names of the failing tests.
+            names = list(dict.fromkeys(_AUTOMAKE_FAIL.findall(clean)))
+            out["detail"] = "failed tests: " + ", ".join(names[:6])
         else:
             m = re.search(r"Failure\b.*?(?=\n\S|\Z)", clean, re.S)
             if m:
@@ -185,8 +201,12 @@ def triage(log_text: str) -> dict:
                 "summary": f"process crashed ({crash.group(0)}) with no sanitizer report",
                 "log_excerpt": _tail(log_text)}
 
-    # compile errors only count if there's no successful test section afterwards
-    if _COMPILE.search(log_text) and not passed:
+    # Compile failure: fire on a genuine build/link error (real even if ctest ran the
+    # test — the binary didn't build/load), OR on a generic '_COMPILE' hit only when no
+    # tests ran. If a test summary is present, a stray 'error:' (e.g. automake's
+    # '# ERROR: 0') is not a compile failure.
+    if not passed and (_LINK_ERR.search(log_text) or compile_errors(log_text) or
+                       (_COMPILE.search(log_text) and not _TESTS_RAN.search(log_text))):
         ce = _extract_compile_error(log_text)
         return {"failure_class": "compile_error", "compile_error": ce,
                 "summary": "build failed: " + (ce["message"] if ce else "compile error"),
