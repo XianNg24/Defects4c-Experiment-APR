@@ -60,6 +60,10 @@ _TESTS_RAN = re.compile(
     r"\[\s*(?:OK|FAILED|RUN)\s*\]|Testing Complete|TESTDONE|Test #\d+", re.I)
 # automake per-test failures ('FAIL: <name>') — the actionable list.
 _AUTOMAKE_FAIL = re.compile(r"^\s*FAIL:\s+(\S+)", re.M)
+# tcpdump's test runner: 'Failed test: <name>' / '<name> : TEST FAILED', then a diff
+# of expected ('<') vs actual ('>') decode output.
+_TCPDUMP_FAIL = re.compile(r"Failed test:\s*(\S+)|^\s*(\S+)\s*:\s*TEST FAILED", re.M)
+_TCPDUMP_DIFF = re.compile(r"^([<>])[ \t]*(\S.*?)\s*$", re.M)
 
 # gtest expected/actual block
 # Failing-test location across frameworks, keeping the FULL path so the tool can
@@ -164,6 +168,15 @@ def _extract_assertion(text: str) -> Optional[dict]:
             # automake TAP: the names of the failing tests.
             names = list(dict.fromkeys(_AUTOMAKE_FAIL.findall(clean)))
             out["detail"] = "failed tests: " + ", ".join(names[:6])
+        elif _TCPDUMP_FAIL.search(clean):
+            m = _TCPDUMP_FAIL.search(clean)
+            name = m.group(1) or m.group(2)
+            exp = " / ".join(d.strip() for s, d in _TCPDUMP_DIFF.findall(clean) if s == "<")[:150]
+            act = " / ".join(d.strip() for s, d in _TCPDUMP_DIFF.findall(clean) if s == ">")[:150]
+            detail = f"test '{name}' failed"
+            if exp or act:
+                detail += f" — expected output {exp!r} but got {act!r}"
+            out["detail"] = detail[:400]
         else:
             m = re.search(r"Failure\b.*?(?=\n\S|\Z)", clean, re.S)
             if m:
