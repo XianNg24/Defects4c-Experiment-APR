@@ -27,6 +27,7 @@ import tools
 import critic
 import asan_parse
 import source_context
+import commit_msg
 from agent_state import AgentState
 from artifacts import BugArtifacts
 from harness_client import HarnessClient, HarnessError
@@ -176,7 +177,8 @@ class RepairRunner:
                  max_tool_requests: int = config.MAX_TOOL_REQUESTS,
                  use_critic: bool = config.USE_CRITIC,
                  baseline: bool = False,
-                 temperature: Optional[float] = config.TEMPERATURE):
+                 temperature: Optional[float] = config.TEMPERATURE,
+                 commit_message: bool = False):
         self.client = client
         self.k = k
         self.repair_rounds = repair_rounds
@@ -193,6 +195,8 @@ class RepairRunner:
         # near-greedy). None = use the dataset's. Raise it for k>1: at 0.01 the k
         # candidates come back near-identical, so best-of-k buys nothing.
         self.temperature = temperature
+        # Oracle ablation — leaks the fix commit's message. Upper bound only.
+        self.commit_message = commit_message
         self.graph = self._build_graph()
 
     # ── graph wiring ──────────────────────────────────────────────────────────
@@ -459,6 +463,16 @@ class RepairRunner:
         self._cond_only = self._single_line and bool(_CONTROL_FLOW.match(code_lines[0]))
 
         messages = list(pd["prompt"])
+        # ORACLE ABLATION: the fix commit's own message. It often states the patch
+        # outright, so this is an upper bound (see commit_msg.py), not a realistic
+        # result. Injected first so it composes with baseline and augmented alike.
+        if self.commit_message:
+            cm = commit_msg.message(bug_id)
+            if cm:
+                messages = _inject_block(
+                    messages,
+                    "The commit message of the fix that resolves this bug:\n\n" + cm,
+                    trailer="\nUse it to infer what the correct line must do.")
         # Recommendation A: the base prompt shows only the buggy function, so the
         # model references symbols it can't see (undeclared-identifier/no-member is the
         # biggest compile-failure cause). Inject the declarations the fix likely needs.
