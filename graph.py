@@ -60,9 +60,37 @@ def _as_text(v) -> str:
 
 
 _CODE_BLOCK = re.compile(r"```(?:[a-zA-Z0-9+]*)\s*\n?(.*?)```", re.S)
+# a genuine BUILD failure in a verdict's log tail (vs a test failure, which compiles)
+_BUILD_FAIL_MARK = re.compile(
+    r"ninja: build stopped|\d+ errors? generated|make(?:\[\d+\])?: \*\*\*|"
+    r"build stopped: subcommand failed|collect2: error|linker command failed")
 
 
-def extract_fix_code(response: str) -> str:
+def _first_statement(block: str) -> str:
+    """The first complete statement of `block`: accumulate lines from the first real
+    code line until brackets balance AND the line ends a statement (; { } :). This
+    enforces edit-in-place for single-line bugs — the model's over-generated trailing
+    lines (the #1 cause of structural compile failures) are dropped, and a statement the
+    model wrapped across lines is still kept whole."""
+    lines = block.splitlines()
+    i = 0
+    while i < len(lines) and (not lines[i].strip()
+                              or lines[i].strip().startswith(("//", "/*", "*"))):
+        i += 1
+    # Balance only () and [] — a control-flow header ('if (...) {') legitimately ends
+    # with an unbalanced '{' that the unchanged function closes later, so braces are NOT
+    # part of the completeness test; a trailing { } ; : just marks the statement's end.
+    out, depth = [], 0
+    for ln in lines[i:]:
+        out.append(ln)
+        depth += ln.count("(") + ln.count("[") - ln.count(")") - ln.count("]")
+        s = ln.rstrip()
+        if depth <= 0 and s.endswith((";", "{", "}", ":")):
+            break
+    return "\n".join(out) if out else block
+
+
+def extract_fix_code(response: str, single_line: bool = False) -> str:
     """Return the code to insert at the infill location.
 
     The model's convention is to restate the *buggy* line first, then give the
@@ -70,11 +98,16 @@ def extract_fix_code(response: str) -> str:
     correct line should be: …"). build_patch extracts the FIRST fenced block, so
     passing the raw response inserts the buggy line. We therefore hand it just
     the LAST fenced block (the fix), re-wrapped so build_patch still finds one.
+
+    When `single_line`, the block is further reduced to its first complete statement:
+    the buggy hunk is one line, so anything past the first statement is over-generation
+    (which corrupts the surrounding braces/scope — 63% of compile failures).
     """
     blocks = _CODE_BLOCK.findall(response or "")
-    if not blocks:
-        return response
-    return "```cpp\n" + blocks[-1].strip("\n") + "\n```"
+    body = blocks[-1] if blocks else (response or "")
+    if single_line:
+        body = _first_statement(body)
+    return "```cpp\n" + body.strip("\n") + "\n```"
 
 
 def _inject_block(messages: list, block: str, trailer: str = "") -> list:
@@ -250,7 +283,7 @@ class RepairRunner:
                 state["round_idx"] = round_idx + 1
                 return state
             last_fail_verdict = verdict
-            last_fail_code = extract_fix_code(response)
+            last_fail_code = extract_fix_code(response, single_line=self._single_line)
             last_fail_diff = patch_diff or ""
 
         # all candidates failed this round → build feedback for the next round.
@@ -289,6 +322,16 @@ class RepairRunner:
         return crit.as_feedback()
 
     # ── one candidate: build_patch → fix → status ─────────────────────────────
+    def _build_failed(self, v: dict) -> bool:
+        """The candidate failed to BUILD (vs failing the test, which means it compiled).
+        A test failure never reaches the exit code, so rc==1 / build_ok False / a build
+        marker in the log all mean the build broke."""
+        if v.get("passed"):
+            return False
+        if v.get("build_ok") is False or v.get("return_code") == 1:
+            return True
+        return bool(_BUILD_FAIL_MARK.search(v.get("log_tail") or ""))
+
     def _verify_one(self, response: str):
         code = extract_fix_code(response)     # last fenced block = the corrected line
         # Echo guard: the model just re-applied the buggy line the prompt displays.
@@ -303,6 +346,23 @@ class RepairRunner:
             return None, None, {"passed": False, "build_ok": False,
                                 "error": "no code extracted from model response",
                                 "return_code": None}
+        patch_path, patch_diff, verdict = self._try_code(code)
+        # Edit-in-place fallback: a single-line bug whose full block failed to BUILD is
+        # almost always over-generation (trailing lines break the scope/braces — 63% of
+        # compile failures). Retry once with just the first statement. Gated to build
+        # failures, and adopted only if the retry actually compiles, so it can NEVER
+        # regress a passing or already-compiling candidate.
+        if self._single_line and self._build_failed(verdict):
+            trimmed = extract_fix_code(response, single_line=True)
+            if trimmed.strip() and _norm_code(trimmed) != _norm_code(code):
+                pp2, pd2, v2 = self._try_code(trimmed)
+                if not self._build_failed(v2):
+                    v2["edit_in_place_retry"] = True
+                    return pp2, pd2, v2
+        return patch_path, patch_diff, verdict
+
+    def _try_code(self, code: str):
+        """build_patch → fix → verdict for one code string. Returns (path, diff, verdict)."""
         try:
             patch = self.client.build_patch(self._bug_id, code, method=self.patch_method)
         except (HarnessError, requests.RequestException) as e:
