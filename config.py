@@ -37,6 +37,8 @@ SEED = int(os.environ.get("APR_SEED", "0"))
 # come back near-identical, so best-of-k adds cost without adding coverage.
 _t = os.environ.get("APR_TEMPERATURE")
 TEMPERATURE = float(_t) if _t else None
+# Use the libclang semantic symbol digest (header-aware) instead of the regex one.
+USE_CLANG_DIGEST = os.environ.get("APR_CLANG_DIGEST", "0") not in ("0", "false", "")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

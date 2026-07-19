@@ -27,6 +27,7 @@ import tools
 import critic
 import asan_parse
 import source_context
+import clang_digest
 import commit_msg
 from agent_state import AgentState
 from artifacts import BugArtifacts
@@ -211,7 +212,8 @@ class RepairRunner:
                  use_critic: bool = config.USE_CRITIC,
                  baseline: bool = False,
                  temperature: Optional[float] = config.TEMPERATURE,
-                 commit_message: bool = False):
+                 commit_message: bool = False,
+                 clang_digest: bool = config.USE_CLANG_DIGEST):
         self.client = client
         self.k = k
         self.repair_rounds = repair_rounds
@@ -230,6 +232,9 @@ class RepairRunner:
         self.temperature = temperature
         # Oracle ablation — leaks the fix commit's message. Upper bound only.
         self.commit_message = commit_message
+        # Use the libclang (semantic, header-aware) symbol digest instead of the regex
+        # one; falls back to regex per-bug when clang can't parse (missing external deps).
+        self.clang_digest = clang_digest
         self.graph = self._build_graph()
 
     # ── graph wiring ──────────────────────────────────────────────────────────
@@ -537,7 +542,8 @@ class RepairRunner:
         # model references symbols it can't see (undeclared-identifier/no-member is the
         # biggest compile-failure cause). Inject the declarations the fix likely needs.
         if not self.baseline:
-            digest = source_context.symbol_digest(bug_id, self._buggy_context)
+            digest = ((clang_digest.digest(bug_id, self._buggy_context) if self.clang_digest
+                       else "") or source_context.symbol_digest(bug_id, self._buggy_context))
             if digest:
                 messages = _inject_block(messages, digest)
         # Phase 2 gather_context: observe the real failure, triage it, and apply

@@ -26,3 +26,4 @@ deepseek_tokenizer_fixed/
 logs/
 .vllm_current_log
 .run_current_log
+.clang_digest_cache/

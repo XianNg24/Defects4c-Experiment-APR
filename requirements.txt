@@ -6,3 +6,4 @@ rich>=13.0
 # Orchestrator (used from Phase 1 onward; harness_client smoke test does not need it).
 langgraph>=0.2
 langchain-core>=0.3
+libclang==18.1.1

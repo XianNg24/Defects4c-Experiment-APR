@@ -68,6 +68,9 @@ def main() -> int:
                    help="sampling temperature; overrides the dataset's per-defect value "
                         "(0.01 for every entry — near-greedy). Raise to ~0.6-0.8 when k>1, "
                         "else the k candidates come back near-identical.")
+    p.add_argument("--clang-digest", action="store_true", default=config.USE_CLANG_DIGEST,
+                   help="use the libclang (semantic, header-aware) symbol digest instead "
+                        "of the regex one; falls back to regex per-bug when clang can't parse.")
     p.add_argument("--commit-message", action="store_true",
                    help="ORACLE ABLATION (leakage): inject the fix commit's own message, "
                         "which often states the patch outright. Upper bound only — not a "
@@ -102,6 +105,7 @@ def main() -> int:
         "patch_method": args.patch_method, "diagnose": diagnose,
         "use_critic": use_critic, "baseline": args.baseline,
         "commit_message": args.commit_message,   # oracle ablation (leakage)
+        "clang_digest": args.clang_digest,
         "temperature": args.temperature,   # None = dataset's own (0.01)
         "sanitizer_rebuild": config.ENABLE_SANITIZER_REBUILD, "n_bugs": len(bugs),
         "base_url": config.DEFECTS4C_BASE_URL, "llm_endpoint": config.OPENAI_BASE_URL,
@@ -116,7 +120,8 @@ def main() -> int:
                           patch_method=args.patch_method, diagnose=diagnose,
                           max_tool_requests=args.max_tool_requests, use_critic=use_critic,
                           baseline=args.baseline, temperature=args.temperature,
-                          commit_message=args.commit_message)
+                          commit_message=args.commit_message,
+                          clang_digest=args.clang_digest)
 
     n_solved = 0
     n_infra = 0
