@@ -118,7 +118,28 @@ def _failing_test_cmd(bug_id: str) -> tuple | None:
     return None
 
 
-def capture(bug_id: str) -> str:
+_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".gdb_values_cache")
+
+
+def capture(bug_id: str, use_cache: bool = True) -> str:
+    """Cached wrapper: gdb capture runs once per defect (identical across candidates/runs)."""
+    cp = os.path.join(_CACHE_DIR, re.sub(r"[^\w.-]", "_", bug_id)[:90] + ".txt")
+    if use_cache and os.path.exists(cp):
+        return open(cp, errors="replace").read()
+    try:
+        out = _capture(bug_id)
+    except Exception as e:  # noqa: BLE001 — never break a run over the gdb block
+        out = f"(gdb capture error: {e})"
+    if use_cache:
+        os.makedirs(_CACHE_DIR, exist_ok=True)
+        try:
+            open(cp, "w").write(out)
+        except OSError:
+            pass
+    return out
+
+
+def _capture(bug_id: str) -> str:
     info = _defect(bug_id)
     if not info or not info.get("src") or not info.get("lineno"):
         return "(no source location in metadata)"

@@ -71,6 +71,8 @@ def main() -> int:
     p.add_argument("--clang-digest", action="store_true", default=config.USE_CLANG_DIGEST,
                    help="use the libclang (semantic, header-aware) symbol digest instead "
                         "of the regex one; falls back to regex per-bug when clang can't parse.")
+    p.add_argument("--gdb-values", action="store_true", default=config.USE_GDB_VALUES,
+                   help="inject gdb-captured runtime values at the buggy line for value-dependent defects (needs gdb + built binaries in the container).")
     p.add_argument("--commit-message", action="store_true",
                    help="ORACLE ABLATION (leakage): inject the fix commit's own message, "
                         "which often states the patch outright. Upper bound only — not a "
@@ -105,7 +107,7 @@ def main() -> int:
         "patch_method": args.patch_method, "diagnose": diagnose,
         "use_critic": use_critic, "baseline": args.baseline,
         "commit_message": args.commit_message,   # oracle ablation (leakage)
-        "clang_digest": args.clang_digest,
+        "clang_digest": args.clang_digest, "gdb_values": args.gdb_values,
         "temperature": args.temperature,   # None = dataset's own (0.01)
         "sanitizer_rebuild": config.ENABLE_SANITIZER_REBUILD, "n_bugs": len(bugs),
         "base_url": config.DEFECTS4C_BASE_URL, "llm_endpoint": config.OPENAI_BASE_URL,
@@ -121,7 +123,8 @@ def main() -> int:
                           max_tool_requests=args.max_tool_requests, use_critic=use_critic,
                           baseline=args.baseline, temperature=args.temperature,
                           commit_message=args.commit_message,
-                          clang_digest=args.clang_digest)
+                          clang_digest=args.clang_digest,
+                          gdb_values=args.gdb_values)
 
     n_solved = 0
     n_infra = 0

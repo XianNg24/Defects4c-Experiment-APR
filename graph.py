@@ -28,6 +28,7 @@ import critic
 import asan_parse
 import source_context
 import clang_digest
+import gdb_values
 import commit_msg
 from agent_state import AgentState
 from artifacts import BugArtifacts
@@ -153,6 +154,7 @@ _CONDITION_GUIDANCE = (
     "inside the condition parentheses. Keep the keyword, the parentheses, and the "
     "loop/branch structure exactly as they are.")
 _CONTROL_FLOW = re.compile(r"^\s*(?:\}\s*)?(?:else\s+)?(?:if|for|while|switch)\b\s*\(")
+_CMP = re.compile(r"[<>]=?|==|!=|\|\||&&")   # value-dependent buggy line (for gdb values)
 
 
 _FENCE = re.compile(r"^```\w*\s*|\s*```$")
@@ -213,7 +215,8 @@ class RepairRunner:
                  baseline: bool = False,
                  temperature: Optional[float] = config.TEMPERATURE,
                  commit_message: bool = False,
-                 clang_digest: bool = config.USE_CLANG_DIGEST):
+                 clang_digest: bool = config.USE_CLANG_DIGEST,
+                 gdb_values: bool = config.USE_GDB_VALUES):
         self.client = client
         self.k = k
         self.repair_rounds = repair_rounds
@@ -235,6 +238,8 @@ class RepairRunner:
         # Use the libclang (semantic, header-aware) symbol digest instead of the regex
         # one; falls back to regex per-bug when clang can't parse (missing external deps).
         self.clang_digest = clang_digest
+        # Inject gdb-captured runtime values at the buggy line for value-dependent defects.
+        self.gdb_values = gdb_values
         self.graph = self._build_graph()
 
     # ── graph wiring ──────────────────────────────────────────────────────────
@@ -526,6 +531,9 @@ class RepairRunner:
                        if l.strip() and not l.strip().startswith("//")] if m else [])
         self._single_line = len(code_lines) == 1
         self._cond_only = self._single_line and bool(_CONTROL_FLOW.match(code_lines[0]))
+        # value-dependent: a condition/comparison line where runtime values are actionable
+        self._value_dependent = bool(code_lines) and (
+            bool(_CONTROL_FLOW.match(code_lines[0])) or bool(_CMP.search(" ".join(code_lines))))
 
         messages = list(pd["prompt"])
         # ORACLE ABLATION: the fix commit's own message. It often states the patch
@@ -558,6 +566,17 @@ class RepairRunner:
             if state.mode == "compile_error":
                 state.infra_blocked = True
                 return state
+
+        # Dynamic evidence: for a value-dependent buggy line, break the failing test at
+        # that line under gdb and inject the runtime values (see gdb_values.py). Gated to
+        # value-dependent defects since that is where the values are actionable and where
+        # the (potentially slow) gdb run is worth it. "" on any failure.
+        if self.gdb_values and not self.baseline and self._value_dependent:
+            block = gdb_values.capture(bug_id)
+            if block.startswith("Runtime state"):
+                messages = _inject_block(
+                    messages, block,
+                    trailer="\nUse these runtime values to infer the correct condition/value.")
 
         # Final, most-salient instruction: constrain the edit to the infill location,
         # keep it minimal, and consider edge cases (over-editing/rewrites are a top
