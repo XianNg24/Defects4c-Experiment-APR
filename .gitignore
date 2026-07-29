@@ -28,3 +28,21 @@ logs/
 .run_current_log
 .clang_digest_cache/
 .gdb_values_cache/
+
+# console logs & scratch (results live in runs/)
+*.log
+*.bugs
+.force_rebuild_log
+.verify_log
+
+# fine-tuning: LoRA adapters & merged models (large; host on the HF Hub)
+bgcommit_data/finetune/output/
+# fine-tuning: derived training data (regenerable via format_infill.py)
+bgcommit_data/finetune/data/
+
+# raw bgcommit dataset (multi-GB; see bgcommit_data/finetune/README.md)
+bgcommit_data/full_9M_step2.tar
+bgcommit_data/full_38M_step1.jsonl.zip
+bgcommit_data/full_76K_step3.1-3.2_filtering.txt
+bgcommit_data/bgcommit_editpairs_sample.jsonl
+bgcommit_data/online_extracted/
