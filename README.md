@@ -28,9 +28,7 @@ are documented in [docs/agent-internals.md](docs/agent-internals.md) and
 ├── harness/              # patches applied to the Defects4C harness
 ├── bgcommit_data/        # fine-tuning data + pipeline (see finetune/README.md)
 │   └── finetune/         #   train_qlora.py, format_infill.py, merge_and_export.py
-├── docs/                 # design, agent internals, analysis notes
-├── report.md             # main experiment chapter
-├── report2.md            # follow-up: gdb runtime values, fine-tuning, hallucination
+├── docs/                 # design, agent internals, analysis fine-tuning, hallucination
 └── runs/                 # experiment outputs (git-ignored)
 ```
 
