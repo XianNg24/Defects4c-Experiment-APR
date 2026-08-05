@@ -1,5 +1,5 @@
 diff --git a/defectsc_tpl/new_main.py b/defectsc_tpl/new_main.py
-index 1de1d95..c37d4ed 100644
+index 1de1d95..255b122 100644
 --- a/defectsc_tpl/new_main.py
 +++ b/defectsc_tpl/new_main.py
 @@ -31,6 +31,7 @@ import os
@@ -81,6 +81,15 @@ index 1de1d95..c37d4ed 100644
      def _make_dir(self, *candidates: Path) -> Path:
          for i, p in enumerate(candidates):
              if p.exists() or i == 0:
+@@ -605,7 +640,7 @@ class BugsInfo:
+ # ─────────────────────────── Runner functions ────────────────────────
+ 
+ def _run_reproduce(instance: BugsInfo, log_path: str, force_cleanup: bool) -> int:
+-    timeout = 60 * 60 if "llvm" in instance.project else 60 * 30
++    timeout = 60 * 60 if "llvm" in instance.project else 3000  # was 60*30; SPIRV/arrow C++ builds exceed 1800s
+     with open(log_path, "w") as lf:
+         if force_cleanup:
+             exec_cmd({"cmd": "git clean -dfx", "cwd": instance.wrk_git, "stdout": lf, "stderr": lf})
 @@ -646,8 +681,10 @@ async def run_reproduce_queue(instance: BugsInfo, log_path: str, handle: str, fo
      lock = sha_locks.setdefault(instance.sha, asyncio.Lock())
      async with lock:

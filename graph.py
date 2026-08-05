@@ -28,6 +28,7 @@ import critic
 import asan_parse
 import source_context
 import clang_digest
+import gap_digest
 import gdb_values
 import commit_msg
 from agent_state import AgentState
@@ -140,6 +141,14 @@ _REPAIR_GUIDANCE = (
     "- Think about the edge cases the failing test exercises (empty/NULL inputs, "
     "boundary and off-by-one values, integer overflow, buffer bounds) and make sure "
     "your line handles them.\n"
+    "- Output ONLY the replacement code for the infill location, as a single "
+    "```cpp code block, and nothing else.")
+# Minimal-guidance ablation: only the anti-copy line + the output-format line.
+_MINIMAL_GUIDANCE = (
+    "How to write the fix:\n"
+    "- The buggy line shown above is INCORRECT and is what causes the failure. Your "
+    "fix MUST be different from it — do NOT copy or reproduce the buggy line, or the "
+    "bug remains.\n"
     "- Output ONLY the replacement code for the infill location, as a single "
     "```cpp code block, and nothing else.")
 # Appended only when the buggy code is a single line, so the model matches its edit
@@ -552,6 +561,8 @@ class RepairRunner:
         if not self.baseline:
             digest = ((clang_digest.digest(bug_id, self._buggy_context) if self.clang_digest
                        else "") or source_context.symbol_digest(bug_id, self._buggy_context))
+            if config.USE_GAP_DIGEST:
+                digest = gap_digest.augment(bug_id, self._buggy_context, digest)
             if digest:
                 messages = _inject_block(messages, digest)
         # Phase 2 gather_context: observe the real failure, triage it, and apply
@@ -581,13 +592,16 @@ class RepairRunner:
         # Final, most-salient instruction: constrain the edit to the infill location,
         # keep it minimal, and consider edge cases (over-editing/rewrites are a top
         # cause of compile errors and regressions).
-        if not self.baseline:
-            guidance = _REPAIR_GUIDANCE
-            if self._single_line:
-                guidance += _SINGLE_LINE_GUIDANCE
-            if self._cond_only:
-                guidance += _CONDITION_GUIDANCE
-            messages = _inject_block(messages, guidance)
+        if not self.baseline or config.BASELINE_GUIDANCE:
+            if self.baseline and config.BASELINE_GUIDANCE_MINIMAL:
+                messages = _inject_block(messages, _MINIMAL_GUIDANCE)
+            else:
+                guidance = _REPAIR_GUIDANCE
+                if self._single_line:
+                    guidance += _SINGLE_LINE_GUIDANCE
+                if self._cond_only:
+                    guidance += _CONDITION_GUIDANCE
+                messages = _inject_block(messages, guidance)
 
         init: GState = {
             "round_idx": 0,

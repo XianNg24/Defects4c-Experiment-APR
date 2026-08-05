@@ -39,8 +39,20 @@ _t = os.environ.get("APR_TEMPERATURE")
 TEMPERATURE = float(_t) if _t else None
 # Use the libclang semantic symbol digest (header-aware) instead of the regex one.
 USE_CLANG_DIGEST = os.environ.get("APR_CLANG_DIGEST", "0") not in ("0", "false", "")
+# Deterministic gap-filler: grep the repo for referenced project symbols the digest
+# dropped (cross-header macros like tcpdump ND_TCHECK). Default OFF: a controlled A/B
+# (run_20260804-223457 vs -231123) measured net -2 at k=1 -- the FT model already knows
+# these symbols, so injecting them is redundant and mildly distracting. Retained for
+# ablation / stock-model use. See result.md "Retrieval -- deterministic gap-filler".
+USE_GAP_DIGEST = os.environ.get("APR_GAP_DIGEST", "0") not in ("0", "false", "")
 # Inject gdb-captured runtime values at the buggy line (value-dependent defects).
 USE_GDB_VALUES = os.environ.get("APR_GDB_VALUES", "0") not in ("0", "false", "")
+# Ablation: keep the "How to write the fix" repair guidance even under --baseline
+# (everything else stays stripped). Isolates the value of the format/how-to block.
+_baseline_guidance = os.environ.get("APR_BASELINE_GUIDANCE", "0")
+BASELINE_GUIDANCE = _baseline_guidance not in ("0", "false", "")
+# "minimal" injects only the anti-copy + output-format lines (2 of the 5 guidance bullets)
+BASELINE_GUIDANCE_MINIMAL = _baseline_guidance == "minimal"
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -54,7 +66,7 @@ OUT_DIR = os.environ.get(
 
 # ── Diagnostics / tools (Phase 2, evidence-driven) ────────────────────────────
 SANITIZE = os.environ.get("APR_SANITIZE", "address,undefined")
-REPRODUCE_MAX_WAIT = int(os.environ.get("APR_REPRODUCE_MAX_WAIT", "1800"))  # ASAN full build
+REPRODUCE_MAX_WAIT = int(os.environ.get("APR_REPRODUCE_MAX_WAIT", "3000"))  # ASAN full build; big C++ suites (SPIRV/arrow) exceed 1800s
 # Master switch for the evidence-driven diagnosis step (observe→triage→tools).
 ENABLE_DIAGNOSIS = os.environ.get("APR_DIAGNOSE", "1") not in ("0", "false", "")
 # The one expensive tool (full sanitizer rebuild); can be disabled for fast batches.
